@@ -22,11 +22,11 @@ class Redis implements ISubscribe
         $password = $config["password"];
         $queue    = $config["queue"];
 
-        $this->redis = new \Wing\Library\Redis(
-            $host,
-            $port,
-            $password
-        );
+        $this->redis = new \Wing\Library\lib_redis([
+            'host' => $host,
+            'port' => $port,
+            'password' => $password,
+        ]);
         $this->queue = $queue;
 	}
 
