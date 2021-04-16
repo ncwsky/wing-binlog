@@ -101,17 +101,17 @@ class BinLogPacket
 
         $this->advance(1);
 
-        $timestamp  = unpack('L', $this->read(4))[1];
+        $timestamp  = unpack('V', $this->read(4))[1];
         $event_type = unpack('C', $this->read(1))[1];
-        $server_id  = unpack('L', $this->read(4))[1];
+        $server_id  = unpack('V', $this->read(4))[1];
 
         if (WING_DEBUG) {
             echo "server id = ",$server_id, PHP_EOL;
         }
 
-        $event_size = unpack('L', $this->read(4))[1];
+        $event_size = unpack('V', $this->read(4))[1];
         //position of the next event
-        $log_pos    = unpack('L', $this->read(4))[1];
+        $log_pos    = unpack('V', $this->read(4))[1];
 
         $this->read(2);
         //$flags = unpack('S', $this->read(2))[1];
@@ -153,8 +153,13 @@ class BinLogPacket
                     wing_debug('心跳事件 => ' . $binlog_name);
                 }
                 break;
+            case EventType::XID_EVENT:
+                $data =  $this->eventXid();
+                $data["event"]["time"] = date("Y-m-d H:i:s", $timestamp);
+                break;
             case EventType::QUERY_EVENT:
                 //修改表结构的事件为QUERY_EVENT
+
                 $_pack = strtolower($pack);
                 if (//strpos($_pack, "alter") !== false
                     //&&
@@ -166,12 +171,18 @@ class BinLogPacket
                     //清除数据表缓存
                     $this->unsetTableMapCache($this->schema_name, $this->table_name);
                 }
+
+                $data =  $this->eventQuery($event_size_without_header);
+                $data["event"]["time"] = date("Y-m-d H:i:s", $timestamp);
                 break;
             default:
                 wing_debug("未知事件", $event_type, $pack);
                 wing_log("binlog_not_support_event", $event_type, $pack);
                 echo "未知事件";
                 break;
+        }
+        if(isset($data["database"])){
+            $data["event_size"] = $event_size;
         }
 
         if (WING_DEBUG) {
@@ -209,9 +220,10 @@ class BinLogPacket
             }
         }
 
-        for ($i = $this->offset; $i < $this->offset + $length; $i++) {
+        $sub_str .= substr($this->packet, $this->offset, $length);
+/*        for ($i = $this->offset; $i < $this->offset + $length; $i++) {
             $sub_str .= $this->packet[$i];
-        }
+        }*/
 
         $this->offset += $length;
 
@@ -378,11 +390,9 @@ class BinLogPacket
     */
     public function readUint64()
     {
-        $d      = $this->read(8);
-        $data   = unpack('V*', $d);
-        $bigInt = bcadd($data[1], bcmul($data[2], bcpow(2, 32)));
-
-        return $bigInt;
+        $binary      = $this->read(8);
+        $data = unpack('V*', $binary);
+        return bcadd((string)$data[1], bcmul((string)$data[2], bcpow('2', '32')));
     }
 
     public function readInt64()
@@ -686,52 +696,6 @@ class BinLogPacket
             $enums = str_replace('\'', '', $enums);
             $field['set_values'] = explode(',', $enums);
         }
-    }
-
-    public function updateRow($event_type, $size)
-    {
-        //$table_id =
-        $this->readTableId();
-
-        if (in_array($event_type, [
-            EventType::DELETE_ROWS_EVENT_V2,
-            EventType::WRITE_ROWS_EVENT_V2,
-            EventType::UPDATE_ROWS_EVENT_V2
-        ])) {
-            $this->read(2);
-            //$flags = unpack('S', $this->read(2))[1];
-            $extra_data_length = unpack('S', $this->read(2))[1];
-            //$extra_data =
-            $this->read($extra_data_length / 8);
-        } else {
-            $this->read(2);
-            //$flags = unpack('S', $this->read(2))[1];
-        }
-
-        //Body
-        $columns_num = $this->readCodedBinary();
-        $len         = (int)(($columns_num + 7) / 8);
-        $bitmap1     = $this->read($len);
-        $bitmap2     = $this->read($len);
-
-        $rows = [];
-        while ($this->hasNext($size)) {
-            $rows[] = [
-                "old_data" => $this->columnFormat($bitmap1),
-                "new_data" => $this->columnFormat($bitmap2)
-            ];
-        }
-
-        $value = [
-            "database" => $this->schema_name,
-            "table"    => $this->table_name,
-            "event"    =>  [
-                "event_type" => "update_rows",
-                "data"       => $rows//self::_getUpdateRows($bitmap1, $bitmap2, $size)
-            ]
-        ];
-
-        return $value;
     }
 
     public static function bitCount($bitmap)
@@ -1128,6 +1092,7 @@ class BinLogPacket
         while($this->hasNext($size)) {
             $rows[] = $this->columnFormat($bitmap);
         }
+        file_put_contents(HOME.'/xxx.log', 'add:'.json_encode($rows).PHP_EOL, FILE_APPEND);
 
         $value = [
             "database" => $this->schema_name,
@@ -1169,6 +1134,7 @@ class BinLogPacket
             $rows[] = $this->columnFormat($bitmap);
         }
 
+        file_put_contents(HOME.'/xxx.log', 'del:'.json_encode($rows).PHP_EOL, FILE_APPEND);
         $value = [
             "database" => $this->schema_name,
             "table"    => $this->table_name,
@@ -1180,6 +1146,95 @@ class BinLogPacket
         return $value;
     }
 
+    public function updateRow($event_type, $size)
+    {
+        //$table_id =
+        $this->readTableId();
+
+        if (in_array($event_type, [
+            EventType::DELETE_ROWS_EVENT_V2,
+            EventType::WRITE_ROWS_EVENT_V2,
+            EventType::UPDATE_ROWS_EVENT_V2
+        ])) {
+            $this->read(2);
+            //$flags = unpack('S', $this->read(2))[1];
+            $extra_data_length = unpack('S', $this->read(2))[1];
+            //$extra_data =
+            $this->read($extra_data_length / 8);
+        } else {
+            $this->read(2);
+            //$flags = unpack('S', $this->read(2))[1];
+        }
+
+        //Body
+        $columns_num = $this->readCodedBinary();
+        $len         = (int)(($columns_num + 7) / 8);
+        $bitmap1     = $this->read($len);
+        $bitmap2     = $this->read($len);
+
+        $rows = [];
+        while ($this->hasNext($size)) {
+            $rows[] = [
+                "old_data" => $this->columnFormat($bitmap1),
+                "new_data" => $this->columnFormat($bitmap2)
+            ];
+        }
+
+        file_put_contents(HOME.'/xxx.log', 'update:'.json_encode($rows).PHP_EOL, FILE_APPEND);
+        $value = [
+            "database" => $this->schema_name,
+            "table"    => $this->table_name,
+            "event"    =>  [
+                "event_type" => "update_rows",
+                "data"       => $rows//self::_getUpdateRows($bitmap1, $bitmap2, $size)
+            ]
+        ];
+
+        return $value;
+    }
+
+    public function eventQuery($event_size_without_header)
+    {
+        $this->advance(4); //slave_proxy_id 4
+        $executionTime = $this->readUInt32(); //execution time 4
+        $schemaLength = $this->readUInt8(); //schema length 1
+        $this->advance(2); //error code 2
+        $statusVarsLength = $this->readUInt16(); //status-vars length 2
+        // 13 end
+        $this->advance($statusVarsLength); //status-vars 内容
+        $schema = $this->read($schemaLength);//schema 内容
+        $this->advance(1); // 空白符 1
+        $query = $this->read($event_size_without_header - 13 - $statusVarsLength - $schemaLength - 1);
+
+        file_put_contents(HOME.'/xxx.log', 'query:'.$query.PHP_EOL, FILE_APPEND);
+
+        $value = [
+            "database" => $schema,
+            "table"    => '',
+            "event"    =>  [
+                "event_type" => "query",
+                "data"       => [$query]
+            ]
+        ];
+
+        return $value;
+    }
+    public function eventXid()
+    {
+        $xid = $this->readUint64();
+        file_put_contents(HOME.'/xxx.log', 'xid:'.$xid.PHP_EOL, FILE_APPEND);
+
+        $value = [
+            "database" => $this->schema_name,
+            "table"    => $this->table_name,
+            "event"    =>  [
+                "event_type" => "xid",
+                "data"       => [$xid]
+            ]
+        ];
+
+        return $value;
+    }
 
     private function _readTime2($column)
     {

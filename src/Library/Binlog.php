@@ -49,7 +49,7 @@ class Binlog
     /**
     * @var bool $checksum
     */
-    private $checksum;
+    public $checksum;
 
     /**
      * 构造函数
@@ -121,7 +121,7 @@ class Binlog
             Mysql::query("set @master_binlog_checksum=@@global.binlog_checksum");
         }
         //heart_period
-        $heart = 5;
+        $heart = 20;
         if ($heart) {
             Mysql::query("set @master_heartbeat_period=".($heart*1000000000));
         }

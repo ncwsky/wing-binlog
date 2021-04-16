@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+defined('SIGTERM') || define('SIGTERM', 15); //中止服务
 //declare(ticks = 1);
 $is_show_errors = false;
 foreach ($argv as $item) {

@@ -515,7 +515,7 @@ class Slave
             $this->excute("set @master_binlog_checksum= @@global.binlog_checksum");
         }
         //heart_period
-        $heart = 5;
+        $heart = 20;
         if($heart) {
             $this->excute("set @master_heartbeat_period=".($heart*1000000000));
         }

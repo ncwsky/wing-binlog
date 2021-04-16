@@ -156,13 +156,14 @@ class Packet
      * @param int $slave_server_id
      * @return string
      */
-	public static function binlogDump($binlog_file,$pos, $slave_server_id)
+	public static function binlogDump($binlog_file, $pos, $slave_server_id)
     {
-        $header = pack('l', 11 + strlen($binlog_file));
+        //小端序 3:payload_length+1:sequence_id
+        $header = pack('V', 11 + strlen($binlog_file)); //pack('l', 11 + strlen($binlog_file));
         $data   = $header . chr(CommandType::COM_BINLOG_DUMP);
-        $data  .= pack('L', $pos);
-        $data  .= pack('s', 0);
-        $data  .= pack('L', $slave_server_id);
+        $data  .= pack('V', $pos);
+        $data  .= pack('v', 0);
+        $data  .= pack('V', $slave_server_id);
         $data  .= $binlog_file;
 
         return $data;
@@ -170,25 +171,38 @@ class Packet
 
     /**
      * COM_REGISTER_SLAVE封包
-     *
+     * https://dev.mysql.com/doc/internals/en/com-register-slave.html
      * @param int $slave_server_id
+     * @param int $master_id
      * @return string
      */
-    public static function registerSlave($slave_server_id)
+    public static function registerSlave($slave_server_id, $master_id=0)
     {
-        $header   = pack('l', 18);
+        $config = load_config("app");
+        $slave_hostname = gethostname();
+        $slave_user = $config["mysql"]["user"];
+        $slave_password = $config["mysql"]["password"];
+        $slave_hostname_len = strlen($slave_hostname);
+        $slave_user_len = strlen($slave_user);
+        $slave_password_len = strlen($slave_password);
 
-        // COM_BINLOG_DUMP
+        $header = pack('V', 18 + $slave_hostname_len + $slave_user_len + $slave_password_len);
+
         $data  = $header . chr(CommandType::COM_REGISTER_SLAVE);
-        $data .= pack('L', $slave_server_id);
-        $data .= chr(0);
-        $data .= chr(0);
-        $data .= chr(0);
+        $data .= pack('V', $slave_server_id);
+        #usually empty:slave_hostname slave_user slave_password
+        $data .= pack('C', $slave_hostname_len);
+        $data .= $slave_hostname;
+        $data .= pack('C', $slave_user_len);
+        $data .= $slave_user;
+        $data .= pack('C', $slave_password_len);
+        $data .= $slave_password;
 
-        $data .= pack('s', '');
+        #usually empty: 2:slaves mysql-port
+        $data .= pack('v', '');
 
-        $data .= pack('L', 0);
-        $data .= pack('L', 1);
+        $data .= pack('V', 0);
+        $data .= pack('V', $master_id);
 
         return $data;
     }
@@ -202,7 +216,7 @@ class Packet
     public static function query($sql)
     {
         $chunk_size = strlen($sql) + 1;
-        return pack('LC',$chunk_size, CommandType::COM_QUERY).$sql;
+        return pack('VC',$chunk_size, CommandType::COM_QUERY).$sql;
     }
 
     /**

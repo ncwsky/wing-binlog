@@ -48,7 +48,6 @@ class BinlogWorker extends BaseWorker
             $datas = $result["event"]["data"];
             foreach ($datas as $row) {
                 $result["event"]["data"] = $row;
-                var_dump($result);
                 foreach ($this->notify as $notify) {
                     $notify->onchange($result);
                 }

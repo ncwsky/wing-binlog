@@ -58,10 +58,10 @@ class CommandType
     const COM_TIME                  = 15;
     const COM_DELAYED_INSERT        = 16;
     const COM_CHANGE_USER           = 17;
-    const COM_BINLOG_DUMP           = 18;
+    const COM_BINLOG_DUMP           = 0x12;
     const COM_TABLE_DUMP            = 19;
     const COM_CONNECT_OUT           = 20;
-    const COM_REGISTER_SLAVE        = 21;
+    const COM_REGISTER_SLAVE        = 0x15;
     const COM_STMT_PREPARE          = 22;
     const COM_STMT_EXECUTE          = 23;
     const COM_STMT_SEND_LONG_DATA   = 24;
