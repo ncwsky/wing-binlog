@@ -7,7 +7,12 @@ defined('SIGTERM') || define('SIGTERM', 15); //中止服务
 if (PHP_SAPI !== 'cli') {
     exit("Only run in command line mode \n");
 }
+if (!function_exists("socket_create")) {
+    exit("Please install php_sockets extension \n");
+}
 
+//定义时间区
+date_default_timezone_set("PRC");
 //strtoupper(substr(PHP_OS, 0, 3))==='WIN' || "CYGWIN" == PHP_OS
 define('IS_WINDOWS', DIRECTORY_SEPARATOR === '\\');
 //根目录
@@ -20,17 +25,13 @@ if (!is_dir(__DIR__."/logs")) {
 
 include __DIR__."/src/helpers.php";
 
-//初始化命令行参数
+//初始化命令行参数 $argc — 传递给脚本的参数数目
 $str_argv = '';
 for ($i = 1; $i < $argc; $i++) {
     $str_argv .= ' '.$argv[$i];
 }
 
-$file_name = str_replace(__DIR__, "", __FILE__);
-$file_name = trim($file_name, "/");
-$file_name = trim($file_name, "\\");
-
-$command_line = 'php '.$file_name.' '.$str_argv;
+$command_line = 'php '.basename(__FILE__).' '.$str_argv;
 define("WING_COMMAND_LINE", $command_line);
 
 if (!file_exists(__DIR__."/composer.json")) {
@@ -44,22 +45,12 @@ if (!file_exists(__DIR__.'/vendor/autoload.php')) {
 //    exit;
 }
 
-if (!function_exists("socket_create")) {
-    echo "请安装php_sockets扩展", PHP_EOL;
-    exit;
-}
-
 require __DIR__.'/vendor/autoload.php';
 require __DIR__.'/src/windows.php';
 
 use Symfony\Component\Console\Application;
 
-//定义时间区
-if (!date_default_timezone_get() || !ini_get("date.timezone")) {
-    date_default_timezone_set("PRC");
-}
-
-//初始化开发模式
+//初始化开发模式 $argv — 传递给脚本的参数数组
 $debug = false;
 foreach ($argv as $item) {
     if (strpos($item, "debug") !== false) {
@@ -79,9 +70,8 @@ if (WING_DEBUG) {
 }
 
 try {
-
     $application = new Application("wing-binlog");
-    $application->setCatchExceptions(true);
+    $application->setCatchExceptions(true); //在命令执行期间开启异常捕获
 
     $commands = [
         \Wing\Command\ServerStart::class,
@@ -97,5 +87,6 @@ try {
 
     $application->run();
 } catch (\Exception $e) {
-    var_dump($e);
+    echo sprintf('line:%s, file:%s, err:%s', $e->getLine(), $e->getFile(), $e->getMessage()),PHP_EOL;
+    wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
 }

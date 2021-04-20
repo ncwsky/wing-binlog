@@ -24,7 +24,7 @@ class EventType
 	const RAND_EVENT                = 13; #0x0d;
 	const USER_VAR_EVENT            = 14; #0x0e;
 	const FORMAT_DESCRIPTION_EVENT  = 15; #0x0f;
-    
+
 	const XID_EVENT					= 16; #0x10; //事务提交时写入
 	const BEGIN_LOAD_QUERY_EVENT	= 17; #0x11;
 	const EXECUTE_LOAD_QUERY_EVENT	= 18; #0x12;
