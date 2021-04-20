@@ -13,7 +13,7 @@ if (!function_exists("set_process_title")) {
      */
     function set_process_title($title)
     {
-        if (is_env(WINDOWS)) {
+        if (IS_WINDOWS) {
             return null;
         }
         if (function_exists("setproctitle")) {
@@ -303,19 +303,5 @@ if (!function_exists("wing_log")) {
         file_put_contents(HOME."/logs/".$level.".log", $log, FILE_APPEND);
     }
 }
-
-if (!function_exists("is_env")) {
-    function is_env($env)
-    {
-        switch ($env) {
-            case WINDOWS:
-                return strtoupper(substr(PHP_OS, 0, 3))==='WIN' || "CYGWIN" == PHP_OS;
-            case LINUX:
-                return "Linux" == PHP_OS;
-        }
-        return false;
-    }
-}
-
 
 

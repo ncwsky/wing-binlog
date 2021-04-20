@@ -1,0 +1,15 @@
+{
+    "description": "基于mysql数据库binlog的增量订阅&消费，复制于https://github.com/jilieryuyi/wing-binlog.git",
+    "require": {
+        "symfony/console": "^5.2",
+        "psr/log": "dev-master",
+        "php-amqplib/php-amqplib": "2.9.2",
+        "workerman/workerman":"dev-master"
+    },
+    "autoload": {
+        "psr-4": {"Wing\\": "src/"},
+        "files": [
+          "src/helpers.php"
+        ]
+    }
+}

@@ -1,6 +1,5 @@
-<?php namespace Wing\Bin;
-
-use Wing\Exception\NetCloseException;
+<?php
+namespace Wing\Bin;
 
 /**
  * Net.php
@@ -16,33 +15,26 @@ class Net
 	 * 发送数据
 	 *
 	 * @param string $data
-	 * @throws \Exception
+	 * @throws \RuntimeException
 	 * @return bool
 	 */
 	public static function send($data)
 	{
-		if (($bytes = socket_write(self::$socket, $data, strlen($data))) === false) {
+	    $len = strlen($data);
+		if (($bytes = socket_write(self::$socket, $data, $len)) === false) {
 			$error_code = socket_last_error();
-			throw new \Exception(sprintf( "Unable to write to socket: %s", socket_strerror($error_code)), $error_code);
+			throw new \RuntimeException(sprintf( "Unable to write to socket: %s", socket_strerror($error_code)), $error_code);
 		}
-		return $bytes === strlen($data);
+		return $bytes === $len;
 	}
 
-	/**
-	 * 读取指定的字节数量的数据
-	 *
-	 * @param int $data_len
-	 * @return string
-	 * @throws NetCloseException
-	 */
-	public static function _readBytes($data_len)
+    /**
+     * 读取指定的字节数量的数据
+     * @param $data_len
+     * @return string
+     */
+	public static function readBytes($data_len)
 	{
-
-		// server gone away
-		//if ($data_len == 5) {
-		//	throw new \Exception('read 5 bytes from mysql server has gone away');
-		//}
-
 		$bytes_read = 0;
 		$body       = '';
 
@@ -50,7 +42,7 @@ class Net
 			$resp = socket_read(self::$socket, $data_len - $bytes_read);
 
 			if ($resp === false) {
-				throw new NetCloseException(
+				throw new \RuntimeException(
 					sprintf(
 						'remote host has closed. error:%s, msg:%s',
 						socket_last_error(),
@@ -59,29 +51,30 @@ class Net
 			}
 
 			// server kill connection or server gone away
-			if (strlen($resp) === 0) {
-				throw new NetCloseException("read less " . ($data_len - strlen($body)));
+			if ($resp === '') {
+				throw new \RuntimeException("read less " . ($data_len - $bytes_read));
 			}
+
 			$body .= $resp;
 			$bytes_read += strlen($resp);
-		}
-
-		if (strlen($body) < $data_len){
-			throw new NetCloseException("read less " . ($data_len - strlen($body)));
 		}
 
 		return $body;
 	}
 
+    /**
+     * 读取数据包主体内容
+     * @return string
+     */
 	public static function readPacket()
 	{
-		//消息头
-		$header = self::_readBytes(4);
+		//消息头 包数据长度<3>+包序列id<1>
+		$header = self::readBytes(4);
 		//消息体长度3bytes 小端序
-		$unpack_data = unpack("L",$header[0].$header[1].$header[2].chr(0))[1];
-		//$sequence_id = $header[3];
-		$result = self::_readBytes($unpack_data);
-		return $result;
-	}
+		$unpack_data = unpack("V",$header[0].$header[1].$header[2].chr(0))[1];
+		//包序列id
+		//$sequence_id =  unpack("C",$header[3])[1];
 
+		return self::readBytes($unpack_data);
+	}
 }

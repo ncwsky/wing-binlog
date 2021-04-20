@@ -169,7 +169,7 @@ class EventWorker extends BaseWorker
     {
         $daemon = $this->daemon;
 
-        if (!is_env(WINDOWS)) {
+        if (!IS_WINDOWS) {
             $process_id = pcntl_fork();
 
             if ($process_id < 0) {

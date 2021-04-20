@@ -2,18 +2,14 @@
 <?php
 defined('SIGTERM') || define('SIGTERM', 15); //中止服务
 //declare(ticks = 1);
-$is_show_errors = false;
-foreach ($argv as $item) {
-	if (strpos($item, "debug") !== false) {
-		$is_show_errors = true;
-		ini_set("display_errors", "On");
-		error_reporting(E_ALL);
-	}
+
+// Only for cli.
+if (PHP_SAPI !== 'cli') {
+    exit("Only run in command line mode \n");
 }
 
-//初始化一些系统常量
-define("WINDOWS", "windows");
-define("LINUX", "linux");
+//strtoupper(substr(PHP_OS, 0, 3))==='WIN' || "CYGWIN" == PHP_OS
+define('IS_WINDOWS', DIRECTORY_SEPARATOR === '\\');
 //根目录
 define("HOME", __DIR__);
 
@@ -37,10 +33,8 @@ $file_name = trim($file_name, "\\");
 $command_line = 'php '.$file_name.' '.$str_argv;
 define("WING_COMMAND_LINE", $command_line);
 
-if (is_env(WINDOWS) && !file_exists(__DIR__."/composer.json")) {
-    copy(__DIR__."/composer.json.win", __DIR__."/composer.json");
-} else if(!file_exists(__DIR__."/composer.json")) {
-    copy(__DIR__."/composer.json.linux", __DIR__."/composer.json");
+if (!file_exists(__DIR__."/composer.json")) {
+    copy(__DIR__."/composer.json.init", __DIR__."/composer.json");
 }
 
 if (!file_exists(__DIR__.'/vendor/autoload.php')) {
@@ -79,7 +73,7 @@ foreach ($argv as $item) {
 }
 define("WING_DEBUG", $debug);
 
-if (WING_DEBUG && !$is_show_errors) {
+if (WING_DEBUG) {
 	ini_set("display_errors", "On");
 	error_reporting(E_ALL);
 }

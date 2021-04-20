@@ -1,8 +1,8 @@
-<?php namespace Wing\Library\Workers;
+<?php
+namespace Wing\Library\Workers;
 
-use Wing\Exception\NetCloseException;
-use Wing\Library\Binlog;
-use Wing\Library\PDO;
+use \Wing\Library\Binlog;
+use \Wing\Library\PDO;
 use \Wing\Bin\Auth\Auth;
 
 /**
@@ -78,7 +78,7 @@ class BinlogWorker extends BaseWorker
     {
         $daemon = $this->daemon;
 
-        if (!is_env(WINDOWS)) {
+        if (!IS_WINDOWS) {
             $process_id = pcntl_fork();
 
             if ($process_id < 0) {
@@ -126,13 +126,12 @@ class BinlogWorker extends BaseWorker
                     //通知订阅者
                     $this->notice($result);
                 } while (0);
-            } catch (NetCloseException $e) {
+            } catch (\RuntimeException $e) {
                 usleep(500000);
                 $this->connect(load_config("app"));
             } catch (\Exception $e) {
-                if (WING_DEBUG) {
-                    var_dump($e->getMessage());
-                }
+                wing_debug($e->getMessage());
+                wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
                 unset($e);
             }
 

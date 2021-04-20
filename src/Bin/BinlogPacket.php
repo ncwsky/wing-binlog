@@ -10,7 +10,7 @@ use Wing\Bin\Constant\FieldType;
  * Date: 17/9/8
  * Time: 23:14
  */
-class BinLogPacket
+class BinlogPacket
 {
     /**
      * @var int $offset 读取当前数据包的偏移量
@@ -82,7 +82,7 @@ class BinLogPacket
     /**
     * 内部入口
     *
-    * @param string $pack 数据包，次参数来源于Net::readPacket
+    * @param string $pack binlog事件数据包，次参数来源于Net::readPacket
     * @param bool $check_sum
     * @return array|mixed
     */
@@ -105,9 +105,7 @@ class BinLogPacket
         $event_type = unpack('C', $this->read(1))[1];
         $server_id  = unpack('V', $this->read(4))[1];
 
-        if (WING_DEBUG) {
-            echo "server id = ",$server_id, PHP_EOL;
-        }
+        wing_debug("server id = ",$server_id);
 
         $event_size = unpack('V', $this->read(4))[1];
         //position of the next event
@@ -209,7 +207,7 @@ class BinLogPacket
         $length  = intval($length);
         $sub_str = '';
 
-        if ($this->buffer) {
+        if ($this->buffer!=='') {
             $sub_str = substr($this->buffer, 0 , $length);
             if (strlen($sub_str) == $length) {
                 $this->buffer = substr($this->buffer, $length);;
@@ -221,9 +219,6 @@ class BinLogPacket
         }
 
         $sub_str .= substr($this->packet, $this->offset, $length);
-/*        for ($i = $this->offset; $i < $this->offset + $length; $i++) {
-            $sub_str .= $this->packet[$i];
-        }*/
 
         $this->offset += $length;
 
@@ -395,6 +390,17 @@ class BinLogPacket
         return bcadd((string)$data[1], bcmul((string)$data[2], bcpow('2', '32')));
     }
 
+    /**
+     * @param string $binary
+     * @return string
+     */
+    public function unpackUInt64(string $binary)
+    {
+        $data = unpack('V*', $binary);
+
+        return bcadd((string)$data[1], bcmul((string)$data[2], bcpow('2', '32')));
+    }
+
     public function readInt64()
     {
         return $this->readUint64();
@@ -493,13 +499,10 @@ class BinLogPacket
 
     public function readTableId()
     {
-        $a = (int)(ord($this->read(1)) & 0xFF);
-        $a += (int)((ord($this->read(1)) & 0xFF) << 8);
-        $a += (int)((ord($this->read(1)) & 0xFF) << 16);
-        $a += (int)((ord($this->read(1)) & 0xFF) << 24);
-        $a += (int)((ord($this->read(1)) & 0xFF) << 32);
-        $a += (int)((ord($this->read(1)) & 0xFF) << 40);
-        return $a;
+        $tableIdStr = $this->read(6) . chr(0) . chr(0);
+        //Table ID is 6 byte
+        return PHP_INT_SIZE > 4 ? unpack("P", $tableIdStr)[1] : $this->unpackUInt64($tableIdStr);
+        #return unpack("P", $this->read(6).chr(0).chr(0))[1];
     }
 
     /**
@@ -539,10 +542,16 @@ class BinLogPacket
         unset($this->table_map[$schema_name][$table_name]);
     }
 
+    /**
+     * 解析 TABLE_MAP_EVENT
+     * @return array
+     */
     public function tableMap()
     {
         $table_id = $this->readTableId();
-        $this->read(2);
+        $this->read(2); //flags
+
+        wing_debug('table_id:'.$table_id);
 
         //$flags       = unpack('S', $this->read(2))[1];
         $schema_length = unpack("C", $this->read(1))[1];

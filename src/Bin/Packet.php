@@ -268,13 +268,12 @@ class Packet
 		if ($this->buffer) {
 			$sub_str = substr($this->buffer, 0 , $bytes);
 			if (strlen($sub_str) == $bytes) {
-				$this->buffer = substr($this->buffer, $bytes);;
+				$this->buffer = substr($this->buffer, $bytes);
 				return $sub_str;
 			} else {
 				$this->buffer = '';
 				$bytes = $bytes - strlen($sub_str);
 			}
-
 		}
 
         $sub_str = substr($this->packet, $this->pos, $bytes);
@@ -447,7 +446,7 @@ class Packet
         $type = $this->readUint8();
 
         $column["type"]      = $type;
-        $column["type_text"] = FieldType::fieldtype2str($type);
+        $column["type_text"] = FieldType::toStr($type);
         $column["flag"]      = $this->readUint16();
         $column["precision"] = $this->readUint8();
 
