@@ -49,6 +49,9 @@ class BinlogWorker extends BaseWorker
             foreach ($datas as $row) {
                 $result["event"]["data"] = $row;
                 foreach ($this->notify as $notify) {
+                    /**
+                     * @var \Wing\Subscribe\Redis $notify
+                     */
                     $notify->onchange($result);
                 }
             }
