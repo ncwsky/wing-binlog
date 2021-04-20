@@ -1,15 +1,16 @@
 <?php namespace Wing\Command;
 
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wing\Library\Worker;
 
-class ServerRestart extends ServerBase
+class ServerRestart extends Command
 {
     protected function configure()
     {
         $this
-            ->setName('server:restart')
+            ->setName('restart')
             ->setAliases(["restart"])
             ->setDescription('重新启动');
     }
@@ -26,8 +27,8 @@ class ServerRestart extends ServerBase
         $workers     = $worker_info["workers"];
 
         $worker = new Worker([
-            "daemon"  => !!$daemon,
-            "debug"   => !!$debug,
+            "daemon"  => (bool)$daemon,
+            "debug"   => (bool)$debug,
             "workers" => $workers
         ]);
         $worker->start();

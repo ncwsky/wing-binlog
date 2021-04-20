@@ -81,7 +81,7 @@ if (!function_exists("enable_deamon")) {
             //父进程直接退出
             exit(0);
         }
-        //创建进程会话
+        //创建进程会话 使当前进程成为会话的主进程
         if (-1 === posix_setsid()) {
             throw new \Exception("setsid fail");
         }

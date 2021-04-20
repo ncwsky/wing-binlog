@@ -92,7 +92,7 @@ class BinLogPacket
         $data       = [];
         $log_pos    = 0;
 
-        if (strlen($pack) < 19) {
+        if (strlen($pack) < 19) { //公有事件头 固定19字节
             goto end;
         }
 
@@ -113,9 +113,9 @@ class BinLogPacket
         //position of the next event
         $log_pos    = unpack('V', $this->read(4))[1];
 
-        $this->read(2);
-        //$flags = unpack('S', $this->read(2))[1];
+        $flags = unpack('v', $this->read(2))[1];
 
+        //排除事件头Event Head的事件大小
         $event_size_without_header = $check_sum === true ? ($event_size -23) : $event_size - 19;
 
         switch ($event_type) {

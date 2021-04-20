@@ -1,17 +1,18 @@
-<?php namespace Wing\Command;
+<?php
+namespace Wing\Command;
 
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wing\Library\Worker;
 
-class ServerStart extends ServerBase
+class ServerStart extends Command
 {
     protected function configure()
     {
         $this
-            ->setName('server:start')
-            ->setAliases(["start"])
+            ->setName('start')
             ->setDescription('服务启动')
             ->addOption("d", null, InputOption::VALUE_NONE, "守护进程")
             ->addOption("debug", null, InputOption::VALUE_NONE, "调试模式")

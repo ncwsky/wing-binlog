@@ -26,6 +26,7 @@ class Worker
     private $processes          = [];
     private $start_time         = null;
     private $exit_times         = 0; //子进程退出次数
+
     private $worker                = BinlogWorker::class;
 
     /**
@@ -315,7 +316,7 @@ class Worker
         unset($str, $format);
 
         /**
-         * @var BaseWorker $worker
+         * @var BinlogWorker $worker
          */
         $worker = new $this->worker($this->daemon, $this->workers);
         $this->event_process_id = $worker->start();
@@ -358,6 +359,9 @@ class Worker
                         unset($this->processes[$id]);
 
                         if ($pid == $this->event_process_id) {
+                            /**
+                             * @var BinlogWorker $worker
+                             */
                             $worker = new $this->worker($this->daemon, $this->workers);
                             $this->event_process_id = $worker->start();
                             unset($worker);

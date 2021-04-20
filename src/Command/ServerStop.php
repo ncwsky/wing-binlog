@@ -1,16 +1,17 @@
-<?php namespace Wing\Command;
+<?php
+namespace Wing\Command;
 
+use Symfony\Component\Console\Command\Command;
 use Wing\Library\Worker;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class ServerStop extends ServerBase
+class ServerStop extends Command
 {
     protected function configure()
     {
         $this
-            ->setName('server:stop')
-            ->setAliases(["stop"])
+            ->setName('stop')
             ->setDescription('停止服务');
     }
 

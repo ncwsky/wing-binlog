@@ -1,10 +1,12 @@
-<?php namespace Wing\Command;
+<?php
+namespace Wing\Command;
 
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wing\Library\Worker;
 
-class ServerVersion extends ServerBase
+class ServerVersion extends Command
 {
     protected function configure()
     {
@@ -21,5 +23,6 @@ class ServerVersion extends ServerBase
         echo "作者 : yuyi\r\n";
         echo "邮箱 : 297341015@qq.com\r\n";
         echo "QQ群 : 535218312\r\n";
+        return Command::SUCCESS;
     }
 }
