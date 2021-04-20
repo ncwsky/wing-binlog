@@ -9,7 +9,8 @@
     "autoload": {
         "psr-4": {"Wing\\": "src/"},
         "files": [
-          "src/helpers.php"
+          "src/helpers.php",
+          "src/windows.php"
         ]
     }
 }

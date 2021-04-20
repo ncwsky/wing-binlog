@@ -23,8 +23,6 @@ if (!is_dir(__DIR__."/logs")) {
     mkdir(__DIR__."/logs");
 }
 
-include __DIR__."/src/helpers.php";
-
 //初始化命令行参数 $argc — 传递给脚本的参数数目
 $str_argv = '';
 for ($i = 1; $i < $argc; $i++) {
@@ -46,7 +44,6 @@ if (!file_exists(__DIR__.'/vendor/autoload.php')) {
 }
 
 require __DIR__.'/vendor/autoload.php';
-require __DIR__.'/src/windows.php';
 
 use Symfony\Component\Console\Application;
 
