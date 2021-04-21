@@ -1101,7 +1101,6 @@ class BinlogPacket
         while($this->hasNext($size)) {
             $rows[] = $this->columnFormat($bitmap);
         }
-        file_put_contents(HOME.'/xxx.log', 'add:'.json_encode($rows).PHP_EOL, FILE_APPEND);
 
         $value = [
             "database" => $this->schema_name,
@@ -1143,7 +1142,6 @@ class BinlogPacket
             $rows[] = $this->columnFormat($bitmap);
         }
 
-        file_put_contents(HOME.'/xxx.log', 'del:'.json_encode($rows).PHP_EOL, FILE_APPEND);
         $value = [
             "database" => $this->schema_name,
             "table"    => $this->table_name,
@@ -1189,7 +1187,6 @@ class BinlogPacket
             ];
         }
 
-        file_put_contents(HOME.'/xxx.log', 'update:'.json_encode($rows).PHP_EOL, FILE_APPEND);
         $value = [
             "database" => $this->schema_name,
             "table"    => $this->table_name,
@@ -1215,8 +1212,6 @@ class BinlogPacket
         $this->advance(1); // 空白符 1
         $query = $this->read($event_size_without_header - 13 - $statusVarsLength - $schemaLength - 1);
 
-        file_put_contents(HOME.'/xxx.log', 'query:'.$query.PHP_EOL, FILE_APPEND);
-
         $value = [
             "database" => $schema,
             "table"    => '',
@@ -1231,7 +1226,6 @@ class BinlogPacket
     public function eventXid()
     {
         $xid = $this->readUint64();
-        file_put_contents(HOME.'/xxx.log', 'xid:'.$xid.PHP_EOL, FILE_APPEND);
 
         $value = [
             "database" => $this->schema_name,
