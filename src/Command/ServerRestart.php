@@ -17,8 +17,8 @@ class ServerRestart extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        exec("php ".HOME."/services/tcp stop");
-        exec("php ".HOME."/services/websocket stop");
+        #exec("php ".HOME."/services/tcp stop");
+        #exec("php ".HOME."/services/websocket stop");
         Worker::stopAll();
 
         $worker_info = Worker::getWorkerProcessInfo();

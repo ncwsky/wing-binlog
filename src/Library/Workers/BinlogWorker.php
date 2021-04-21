@@ -6,7 +6,7 @@ use \Wing\Library\PDO;
 use \Wing\Bin\Auth\Auth;
 
 /**
- * EventWorker.php
+ * BinlogWorker.php
  * User: huangxiaoan
  * Created: 2017/8/4 12:26
  * Email: huangxiaoan@xunlei.com

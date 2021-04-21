@@ -49,7 +49,7 @@ class lib_redis{
             $this->isExRedis = true;
            
             $func = $this->options['pconnect'] ? 'pconnect' : 'connect';
-            $this->handler = new Redis();
+            $this->handler = new \Redis();
             $this->options['timeout'] == 0 ? $this->handler->$func($this->options['host'], $this->options['port']) : $this->handler->$func($this->options['host'], $this->options['port'], $this->options['timeout']);
             if ('' != $this->options['password']) {
                 $this->handler->auth($this->options['password']);

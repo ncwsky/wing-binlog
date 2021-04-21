@@ -17,8 +17,9 @@ class ServerStop extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        exec("php ".HOME."/services/tcp.php stop");
-        exec("php ".HOME."/services/websocket.php stop");
+        #exec("php ".HOME."/services/tcp.php stop");
+        #exec("php ".HOME."/services/websocket.php stop");
         Worker::stopAll();
+        return Command::SUCCESS;
     }
 }
