@@ -152,8 +152,9 @@ class BinlogPacket
                 }
                 break;
             case EventType::XID_EVENT:
-                $data =  $this->eventXid();
-                $data["event"]["time"] = date("Y-m-d H:i:s", $timestamp);
+                wing_debug('XID事件');
+                #$data =  $this->eventXid();
+                #$data["event"]["time"] = date("Y-m-d H:i:s", $timestamp);
                 break;
             case EventType::QUERY_EVENT:
                 //修改表结构的事件为QUERY_EVENT
@@ -176,7 +177,6 @@ class BinlogPacket
             default:
                 wing_debug("未知事件", $event_type, $pack);
                 wing_log("binlog_not_support_event", $event_type, $pack);
-                echo "未知事件";
                 break;
         }
         if(isset($data["database"])){
@@ -809,7 +809,7 @@ class BinlogPacket
             $res  .= sprintf('%0'.$comp_fractional.'d' , $value);
         }
 
-        return number_format($res,$comp_fractional,'.','');
+        return bcmul($res, '1', $comp_fractional);
     }
 
     private function _readDatetime()

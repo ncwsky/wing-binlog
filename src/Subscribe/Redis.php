@@ -32,6 +32,7 @@ class Redis implements ISubscribe
 
 	public function onchange($event)
 	{
+        if($event['event']['event_type']=='query') return;
         $this->redis->rpush($this->queue, json_encode($event));
 	}
 }

@@ -105,8 +105,6 @@ class BinlogWorker extends BaseWorker
         set_process_title($process_name);
 
         $times = 0;
-        $start = time();
-
         while (1) {
             ob_start();
 
@@ -120,11 +118,8 @@ class BinlogWorker extends BaseWorker
                     }
 
                     $times    += count($result["event"]["data"]);
-                    $span_time = time() - $start;
 
-                    if ($span_time > 0) {
-                        echo $times, "次，", $times / ($span_time) . "/次事件每秒，耗时", $span_time, "秒\r\n";
-                    }
+                    wing_debug($times. '次');
 
                     //通知订阅者
                     $this->notice($result);

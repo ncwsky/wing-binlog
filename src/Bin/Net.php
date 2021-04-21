@@ -75,6 +75,8 @@ class Net
 		//包序列id
 		//$sequence_id =  unpack("C",$header[3])[1];
 
+        #echo 'pack_len:'.$unpack_data,PHP_EOL;
+
 		return self::readBytes($unpack_data);
 	}
 }
