@@ -303,5 +303,3 @@ if (!function_exists("wing_log")) {
         file_put_contents(HOME."/logs/".$level.".log", $log, FILE_APPEND);
     }
 }
-
-

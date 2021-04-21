@@ -143,15 +143,11 @@ class PDO implements IDb
             $this->bconnected = true;
         } catch (\PDOException $e) {
             if (WING_DEBUG) {
-                var_dump(__CLASS__."::".__FUNCTION__, $e->errorInfo);
+                var_dump("mysql连接异常:".__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
 
             sleep(1);
             $this->connect();
-
-            if (WING_DEBUG) {
-                ("mysql连接异常");
-            }
         }
     }
 

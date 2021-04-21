@@ -183,33 +183,19 @@ class Worker
                 break;
             //restart
             case SIGUSR1:
-//                if ($server_id == get_current_processid()) {
-//                    foreach ($this->processes as $id => $pid) {
-//                        posix_kill($pid,SIGINT);
-//                    }
-//                }
+                $worker_info = Worker::getWorkerProcessInfo();
+                $daemon      = $worker_info["daemon"];
+                $debug       = $worker_info["debug"];
+                $workers     = $worker_info["workers"];
 
-//                $cache = new File(__APP_DIR__);
-//                list($deamon, $workers, $debug, $clear) = $cache->get(self::RUNTIME);
-//
-//                $command = "php ".__APP_DIR__."/seals server:start --n ".$workers;
-//                if ($deamon)
-//                    $command .= ' --d';
-//                if ($debug)
-//                    $command .= ' --debug';
-//                if ($clear)
-//                    $command .= ' --clear';
-//
-//                //$shell = "#!/bin/bash\r\n".$command;
-//                //file_put_contents(__APP_DIR__."/restart.sh", $shell);
-//                $handle = popen("/bin/sh -c \"".$command."\" >>".
-//Context::instance()->log_dir."/server_restart.log&","r");
-//
-//                if ($handle) {
-//                    pclose($handle);
-//                }
+                Worker::stopAll();
 
-                exit(0);
+                $worker = new Worker([
+                    "daemon"  => (bool)$daemon,
+                    "debug"   => (bool)$debug,
+                    "workers" => $workers
+                ]);
+                $worker->start();
                 break;
             case SIGUSR2:
                 //echo get_current_processid()," show status\r\n";
@@ -347,9 +333,7 @@ class Worker
 
             try {
                 ob_start();
-
-                $status = 0;
-                $pid    = pcntl_wait($status, WNOHANG);
+                $pid = pcntl_wait($status, WNOHANG);
 
                 if ($pid > 0) {
                     wing_debug($pid, "进程退出");
@@ -358,7 +342,7 @@ class Worker
                         $id = array_search($pid, $this->processes);
                         unset($this->processes[$id]);
 
-                        if ($pid == $this->event_process_id) {
+                        if ($pid == $this->event_process_id) { //重新运行子进程
                             /**
                              * @var BinlogWorker $worker
                              */

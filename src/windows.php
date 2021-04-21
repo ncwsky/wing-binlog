@@ -7,23 +7,13 @@
  *
  * windows兼容
  */
+defined('SIGTERM') || define('SIGTERM', 15); //中止服务
 
-if (!defined("SIGINT")) {
-    define("SIGINT", 1);
-}
-if (!defined("SIGUSR1")) {
-    define("SIGUSR1", 2);
-}
-
-if (!defined("SIGUSR2")) {
-    define("SIGUSR2", 3);
-}
-if (!defined("SIGPIPE")) {
-    define("SIGPIPE", 4);
-}
-if (!defined("SIG_IGN")) {
-    define("SIG_IGN", 5);
-}
+defined('SIGINT') || define('SIGINT', 1); //结束服务
+defined('SIGUSR1') || define('SIGUSR1', 2); //重启服务
+defined('SIGUSR2') || define('SIGUSR2', 3); //服务状态
+defined('SIGPIPE') || define('SIGPIPE', 4);
+defined('SIG_IGN') || define('SIG_IGN', 5); //忽略信号处理程序
 
 if (!function_exists("pcntl_signal")) {
     function pcntl_signal($a = null, $b = null, $c = null, $d = null)

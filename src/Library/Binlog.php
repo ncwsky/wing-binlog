@@ -196,9 +196,6 @@ class Binlog
     public function getCurrentLogInfo()
     {
         $sql  = 'show master status';
-//        if (WING_DEBUG) {
-//            //echo $sql, "\r\n";
-//        }
 
         $data = $this->db_handler->row($sql);
         return $data;

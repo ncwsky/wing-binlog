@@ -1,6 +1,5 @@
 #!/usr/bin/env php
 <?php
-defined('SIGTERM') || define('SIGTERM', 15); //中止服务
 //declare(ticks = 1);
 
 // Only for cli.

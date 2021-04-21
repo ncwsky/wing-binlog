@@ -181,7 +181,6 @@ class EventWorker extends BaseWorker
                 return $process_id;
             }
 
-
             if ($daemon) {
                 reset_std();
             }
@@ -192,7 +191,6 @@ class EventWorker extends BaseWorker
 
         //设置进程标题 mac 会有warning 直接忽略
         set_process_title($process_name);
-
 
         $pdo             = new PDO();
         $bin             = new Binlog($pdo);
@@ -262,9 +260,9 @@ class EventWorker extends BaseWorker
                     foreach ($data as $row) {
                         if ($row["Event_type"] == "Xid") {
                             $all_pos[] = [$start_pos, $row["End_log_pos"]];
-//                            if (WING_DEBUG) {
-//                                //echo "写入pos位置：", $start_pos . "-" . $row["End_log_pos"], "\r\n";
-//                            }
+                            if (WING_DEBUG) {
+                                echo "写入pos位置：", $start_pos . "-" . $row["End_log_pos"], "\r\n";
+                            }
 
                             $last_start_pos = $start_pos;
                             $last_end_pos   = $row["End_log_pos"];
