@@ -92,14 +92,14 @@ class BinlogPacket
         $data       = [];
         $log_pos    = 0;
 
-        if (strlen($pack) < 19) { //公有事件头 固定19字节
+        if (strlen($pack) < 20) { //公有事件头 ok[1]+固定[19]字节
             goto end;
         }
 
         $this->packet = $pack;
         $this->offset = 0;
 
-        $this->advance(1);
+        $this->advance(1); # OK value
 
         $timestamp  = unpack('V', $this->read(4))[1];
         $event_type = unpack('C', $this->read(1))[1];
@@ -112,8 +112,6 @@ class BinlogPacket
         $log_pos    = unpack('V', $this->read(4))[1];
 
         $flags = unpack('v', $this->read(2))[1];
-
-        file_put_contents(HOME.'/xxx.log', 'offset:'.$this->offset.PHP_EOL, FILE_APPEND);
 
         //排除事件头Event Head的事件大小
         $event_size_without_header = $check_sum === true ? ($event_size -23) : $event_size - 19;
@@ -405,6 +403,7 @@ class BinlogPacket
         return $this->read($length);
     }
 
+    //读取大端序
     public function readIntBeBySize($size)
     {
         //Read a big endian integer values based on byte number
@@ -431,16 +430,16 @@ class BinlogPacket
     }
 
     /**
-    * @param int $size
-    * @return bool
-    */
+     * 用于判定是否已经处理完数据
+     * @param $size $event_size_without_header
+     * @return bool
+     */
     public function hasNext($size)
     {
-        file_put_contents(HOME.'/xxx.log', 'offset:'.$this->offset.' -- size:'.$size.PHP_EOL, FILE_APPEND);
-        // 20解析server_id ...
-        if ($this->offset - 20 < $size) {
+        if ($this->offset  < $size) {
             return true;
         }
+        #file_put_contents(HOME.'/xxx.log', 'offset:'.$this->offset.' ++ size:'.$size.PHP_EOL, FILE_APPEND);
         return false;
     }
 
@@ -1103,7 +1102,7 @@ class BinlogPacket
 
     public function updateRow($event_type, $size)
     {
-        $table_id =$this->readTableId();
+        $table_id =$this->readTableId(); //6
         $this->read(2); #$flags
 
         if (in_array($event_type, [
