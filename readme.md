@@ -1,3 +1,6 @@
+从 https://github.com/jilieryuyi/wing-binlog 克隆修改的版本
+
+
 基于mysql数据库binlog的增量订阅&消费
 ====
 >wing-binlog是一个高性能php中间件    
@@ -57,11 +60,4 @@ go build -o websocket websocket.go
 5. 实时数据增量计算统计      
 ...... 
 
-### 帮助
-   目录详解：http://www.itdfy.com/details/1156    
-   QQ群咨询 535218312  
-
-### 致谢
-   https://github.com/fengxiangyun/mysql-replication    
-   https://github.com/jeremycole/mysql_binlog.git
    
