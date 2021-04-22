@@ -51,9 +51,9 @@ class Worker
             $winfo = self::getWorkerProcessInfo();
 
             if (!$this->normal_stop) {
-                $log =  $this->getProcessDisplay()."异常退出";
+                $log = 'pid:'.$this->getProcessDisplay()."异常退出";
                 if (get_current_processid() == $winfo["process_id"]) {
-                    $log = $this->getProcessDisplay()."父进程异常退出";
+                    $log = 'pid:'.$this->getProcessDisplay()."父进程异常退出";
                 }
                 $log .= json_encode(error_get_last(), JSON_UNESCAPED_UNICODE);
             }
