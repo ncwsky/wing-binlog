@@ -81,7 +81,17 @@ class Binlog
             $info = $this->getCurrentLogInfo();
             $this->binlog_file = $info["File"];
             $this->last_pos = $info["Position"];
+
+            //缓存初始复制点
+            $this->setLastBinLog($this->binlog_file);
+            $this->setLastPosition(0, $this->last_pos);
         }
+        echo sprintf(
+            "%-12s%-21s%s\r\n",
+            $this->binlog_file,
+            $this->last_pos,
+            "超始复制点"
+        );
     }
 
     public function getBinlogEvents()
@@ -163,19 +173,13 @@ class Binlog
     public function getLogs()
     {
         $sql  = 'show binary logs';
-//        if (WING_DEBUG) {
-//            //just for debug
-//            //echo $sql, "\r\n";
-//        }
+
         return $this->db_handler->query($sql);
     }
 
     public function getFormat()
     {
         $sql  = 'select @@binlog_format';
-//        if (WING_DEBUG) {
-//            //echo $sql, "\r\n";
-//        }
 
         $data = $this->db_handler->row($sql);
         return strtolower($data["@@binlog_format"]);
@@ -210,9 +214,6 @@ class Binlog
     {
         $logs  = $this->getLogs();
         $sql   = 'select @@log_bin_basename';
-//        if (WING_DEBUG) {
-//          //echo $sql, "\r\n";
-//        }
 
         $data  = $this->db_handler->row($sql);
         $path  = pathinfo($data["@@log_bin_basename"], PATHINFO_DIRNAME);
@@ -246,9 +247,6 @@ class Binlog
         }
 
         $sql  = 'select @@log_bin_basename';
-//        if (WING_DEBUG) {
-//            //echo $sql, "\r\n";
-//        }
 
         $data = $this->db_handler->row($sql);
 
@@ -281,9 +279,6 @@ class Binlog
     public function isOpen()
     {
         $sql  = 'select @@sql_log_bin';
-//        if (WING_DEBUG) {
-//            //echo $sql, "\r\n";
-//        }
 
         $data = $this->db_handler->row($sql);
         return isset($data["@@sql_log_bin"]) && $data["@@sql_log_bin"] == 1;
@@ -298,9 +293,6 @@ class Binlog
     */
     public function setLastBinLog($binlog)
     {
-//        if (WING_DEBUG) {
-//            //echo "保存最后的读取的binlog文件：",$binlog,"\r\n";
-//        }
         return $this->cache_handler->set("mysql.last", $binlog);
     }
 
@@ -311,9 +303,6 @@ class Binlog
     */
     public function getLastBinLog()
     {
-//        if (WING_DEBUG) {
-//            //echo "获取最后读取的binlog\r\n";
-//        }
         return $this->cache_handler->get("mysql.last");
     }
 
@@ -326,9 +315,6 @@ class Binlog
     */
     public function setLastPosition($start_pos, $end_pos)
     {
-//        if (WING_DEBUG) {
-//            //echo "保存最后读取为位置：", $start_pos,":",$end_pos,"\r\n";
-//        }
         return $this->cache_handler->set("mysql.pos", [$start_pos,$end_pos]);
     }
 
@@ -339,9 +325,6 @@ class Binlog
     */
     public function getLastPosition()
     {
-//        if (WING_DEBUG) {
-//            //echo "获取最后读取的位置\r\n";
-//        }
         return $this->cache_handler->get("mysql.pos");
     }
 
@@ -360,12 +343,6 @@ class Binlog
 
         $sql   = 'show binlog events in "' . $current_binlog . '" from ' . $last_end_pos.' limit '.$limit;
         $datas = $this->db_handler->query($sql);
-
-//        if ($datas) {
-//            if (WING_DEBUG) {
-//               //echo $sql,"\r\n";
-//            }
-//        }
 
         return $datas;
     }

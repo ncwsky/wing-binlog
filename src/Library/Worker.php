@@ -27,8 +27,6 @@ class Worker
     private $start_time         = null;
     private $exit_times         = 0; //子进程退出次数
 
-    private $worker                = BinlogWorker::class;
-
     /**
      * 构造函数
      *
@@ -121,7 +119,29 @@ class Worker
      */
     public function onError()
     {
-        wing_log("error", $this->getProcessDisplay()."发生错误：", func_get_args());
+        if ($e = error_get_last()) {
+            $stack = date('[Y-m-d H:i:s]').'[error] type:'.$e['type'].', line:'.$e['line'].', file:'.$e['file'].', message:'.$e['message']."\n";
+        }
+
+        list($errno, $errstr, $errfile, $errline) = func_get_args();
+            //throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+        $debugInfo = debug_backtrace();
+        $stack = "\n[\n";
+        foreach($debugInfo as $key => $val){
+            if(array_key_exists("function", $val)){
+                $stack .= "function:" . $val["function"];
+            }
+            if(array_key_exists("file", $val)){
+                $stack .= ",file:" . $val["file"];
+            }
+            if(array_key_exists("line", $val)){
+                $stack .= ",line:" . $val["line"];
+            }
+            $stack .= "\n";
+        }
+        $stack .= "]";
+
+        wing_log("error", $this->getProcessDisplay()."发生错误：", 'errno:'.$errno.', line:'.$errline.', file:'.$errfile.', message:'.$errstr .$stack);
         if (WING_DEBUG) {
             wing_debug(func_get_args());
         }
@@ -201,10 +221,8 @@ class Worker
                 //echo get_current_processid()," show status\r\n";
 
                 if ($server_id == get_current_processid()) {
-                    $str  = "\r\n".'wing-binlog, version: ' . self::VERSION .
-                        ' auth: yuyi email: 297341015@qq.com  QQ group: 535218312'."\r\n";
-                    $str .= "---------------------------------------------".
-                        "-----------------------------------------------------------------------------\r\n";
+                    $str  = "\r\n".'wing-binlog, version: ' . self::VERSION .' auth: yuyi email: 297341015@qq.com'."\r\n";
+                    $str .= "----------------------------------------------------------------------------------------------------------\r\n";
                     $str .= sprintf(
                         "%-12s%-14s%-21s%-36s%s\r\n",
                         "process_id",
@@ -213,8 +231,7 @@ class Worker
                         "running_time_len",
                         "process_name"
                     );
-                    $str .= "-------------------------------------------".
-                        "-------------------------------------------------------------------------------\r\n";
+                    $str .= "----------------------------------------------------------------------------------------------------------\r\n";
                     $str .= sprintf(
                         "%-12s%-14s%-21s%-36s%s\r\n",
                         $server_id,
@@ -286,10 +303,10 @@ class Worker
 
         $format = "%-12s%-21s%s\r\n";
         $str    = "\r\n".'wing-binlog, version: ' .self::VERSION.
-            ' auth: yuyi email: 297341015@qq.com  QQ group: 535218312'."\r\n";
-        $str   .="--------------------------------------------------------------------------------------\r\n";
+            ' auth: yuyi email: 297341015@qq.com'."\r\n";
+        $str   .= "-----------------------------------------------------------------------\r\n";
         $str   .=sprintf($format, "process_id", "start_time", "process_name");
-        $str   .= "--------------------------------------------------------------------------------------\r\n";
+        $str   .= "-----------------------------------------------------------------------\r\n";
 
         $str   .= sprintf(
             $format,
@@ -301,10 +318,7 @@ class Worker
         echo $str;
         unset($str, $format);
 
-        /**
-         * @var BinlogWorker $worker
-         */
-        $worker = new $this->worker($this->daemon, $this->workers);
+        $worker = new BinlogWorker($this->daemon, $this->workers);
         $this->event_process_id = $worker->start();
         unset($worker);
         $this->processes[] = $this->event_process_id;
@@ -343,10 +357,7 @@ class Worker
                         unset($this->processes[$id]);
 
                         if ($pid == $this->event_process_id) { //重新运行子进程
-                            /**
-                             * @var BinlogWorker $worker
-                             */
-                            $worker = new $this->worker($this->daemon, $this->workers);
+                            $worker = new BinlogWorker($this->daemon, $this->workers);
                             $this->event_process_id = $worker->start();
                             unset($worker);
                             $this->processes[] = $this->event_process_id;

@@ -2,6 +2,7 @@
 namespace Wing\Library\Workers;
 
 use \Wing\Library\Binlog;
+use Wing\Library\ISubscribe;
 use \Wing\Library\PDO;
 use \Wing\Bin\Auth\Auth;
 
@@ -45,12 +46,17 @@ class BinlogWorker extends BaseWorker
     {
         //通知订阅者
         if (is_array($this->notify) && count($this->notify) > 0) {
-            $datas = $result["event"]["data"];
-            foreach ($datas as $row) {
-                $result["event"]["data"] = $row;
+            $data = $result["data"];
+            if($result['event']=='xid') return; //xid事件
+            if(!is_array($data)) { //query事件
+                if($data=='BEGIN') return;
+                $data = [$data];
+            }
+            foreach ($data as $row) {
+                $result["data"] = $row;
                 foreach ($this->notify as $notify) {
                     /**
-                     * @var \Wing\Subscribe\Redis $notify
+                     * @var ISubscribe $notify
                      */
                     $notify->onchange($result);
                 }
@@ -117,7 +123,7 @@ class BinlogWorker extends BaseWorker
                         break;
                     }
 
-                    $times    += count($result["event"]["data"]);
+                    $times += (is_array($result["data"]) ? count($result["data"]) : 1);
 
                     wing_debug($times. '次');
 

@@ -113,6 +113,8 @@ class BinlogPacket
 
         $flags = unpack('v', $this->read(2))[1];
 
+        file_put_contents(HOME.'/xxx.log', 'offset:'.$this->offset.PHP_EOL, FILE_APPEND);
+
         //排除事件头Event Head的事件大小
         $event_size_without_header = $check_sum === true ? ($event_size -23) : $event_size - 19;
 
@@ -125,19 +127,19 @@ class BinlogPacket
             case EventType::UPDATE_ROWS_EVENT_V2:
             case EventType::UPDATE_ROWS_EVENT_V1: {
                     $data = $this->updateRow($event_type, $event_size_without_header);
-                    $data["event"]["time"] = date("Y-m-d H:i:s", $timestamp);
+                    $data["time"] = date("Y-m-d H:i:s", $timestamp);
                 }
                 break;
             case EventType::WRITE_ROWS_EVENT_V1:
             case EventType::WRITE_ROWS_EVENT_V2: {
                     $data = $this->addRow($event_type, $event_size_without_header);
-                    $data["event"]["time"] = date("Y-m-d H:i:s", $timestamp);
+                    $data["time"] = date("Y-m-d H:i:s", $timestamp);
                 }
                 break;
             case EventType::DELETE_ROWS_EVENT_V1:
             case EventType::DELETE_ROWS_EVENT_V2: {
                     $data =  $this->delRow($event_type, $event_size_without_header);
-                    $data["event"]["time"] = date("Y-m-d H:i:s", $timestamp);
+                    $data["time"] = date("Y-m-d H:i:s", $timestamp);
                 }
                 break;
             case EventType::ROTATE_EVENT: {
@@ -153,8 +155,8 @@ class BinlogPacket
                 break;
             case EventType::XID_EVENT:
                 wing_debug('XID事件');
-                #$data =  $this->eventXid();
-                #$data["event"]["time"] = date("Y-m-d H:i:s", $timestamp);
+//                $data =  $this->eventXid();
+//                $data["time"] = date("Y-m-d H:i:s", $timestamp);
                 break;
             case EventType::QUERY_EVENT:
                 //修改表结构的事件为QUERY_EVENT
@@ -172,14 +174,14 @@ class BinlogPacket
                 }
 
                 $data =  $this->eventQuery($event_size_without_header);
-                $data["event"]["time"] = date("Y-m-d H:i:s", $timestamp);
+                $data["time"] = date("Y-m-d H:i:s", $timestamp);
                 break;
             default:
                 wing_debug("未知事件", $event_type, $pack);
-                wing_log("binlog_not_support_event", $event_type, $pack);
+                #wing_log("binlog_not_support_event", $event_type, $pack);
                 break;
         }
-        if(isset($data["database"])){
+        if(isset($data["dbname"])){
             $data["event_size"] = $event_size;
         }
 
@@ -189,7 +191,6 @@ class BinlogPacket
             $msg .= ' --  typeEvent -> '.$event_type;
 
             wing_log("slave_debug", $msg);
-            wing_log("slave_bin", $pack."\r\n\r\n");
         }
 
         end:
@@ -306,7 +307,6 @@ class BinlogPacket
         if ($res >= 0x800000) {
             $res -= 0x1000000;
         }
-
         return $res;
     }
 
@@ -318,7 +318,6 @@ class BinlogPacket
         if ($res >= 0x800000) {
             $res -= 0x1000000;
         }
-
         return $res;
     }
 
@@ -326,11 +325,10 @@ class BinlogPacket
     {
         $data = unpack('C4', $this->read(4));
         $res  = ($data[1] << 24)|($data[2] << 16) | ($data[3] << 8) | $data[4];
-        
+
         if ($res >= 0x800000) {
             $res -= 0x1000000;
         }
-        
         return $res;
     }
 
@@ -485,8 +483,9 @@ class BinlogPacket
     */
     public function hasNext($size)
     {
+        file_put_contents(HOME.'/xxx.log', 'offset:'.$this->offset.' -- size:'.$size.PHP_EOL, FILE_APPEND);
         // 20解析server_id ...
-        if ($this->offset + 1 - 20 < $size) {
+        if ($this->offset - 20 < $size) {
             return true;
         }
         return false;
@@ -556,7 +555,7 @@ class BinlogPacket
         //$flags       = unpack('S', $this->read(2))[1];
         $schema_length = unpack("C", $this->read(1))[1];
 
-        //database 数据库名称
+        // 数据库名称
         $this->schema_name = $this->read($schema_length);
         // 00
         $this->advance(1);
@@ -1073,7 +1072,7 @@ class BinlogPacket
     }
 
 
-    public function addRow( $event_type, $size)
+    public function addRow($event_type, $size)
     {
         //$table_id =
         $this->readTableId();
@@ -1103,12 +1102,10 @@ class BinlogPacket
         }
 
         $value = [
-            "database" => $this->schema_name,
-            "table"    => $this->table_name,
-            "event"    =>  [
-                "event_type" => "write_rows",
-                "data"       => $rows
-            ]
+            "dbname" => $this->schema_name,
+            "table"  => $this->table_name,
+            "event"  => "write_rows",
+            "data"   => $rows
         ];
         return $value;
     }
@@ -1143,12 +1140,10 @@ class BinlogPacket
         }
 
         $value = [
-            "database" => $this->schema_name,
-            "table"    => $this->table_name,
-            "event"    =>  [
-                "event_type" => "delete_rows",
-                "data"       => $rows
-            ]
+            "dbname" => $this->schema_name,
+            "table"  => $this->table_name,
+            "event"  => "delete_rows",
+            "data"   => $rows
         ];
         return $value;
     }
@@ -1182,18 +1177,16 @@ class BinlogPacket
         $rows = [];
         while ($this->hasNext($size)) {
             $rows[] = [
-                "old_data" => $this->columnFormat($bitmap1),
-                "new_data" => $this->columnFormat($bitmap2)
+                "old" => $this->columnFormat($bitmap1),
+                "new" => $this->columnFormat($bitmap2)
             ];
         }
 
         $value = [
-            "database" => $this->schema_name,
-            "table"    => $this->table_name,
-            "event"    =>  [
-                "event_type" => "update_rows",
-                "data"       => $rows//self::_getUpdateRows($bitmap1, $bitmap2, $size)
-            ]
+            "dbname" => $this->schema_name,
+            "table"  => $this->table_name,
+            "event"  => "update_rows",
+            "data"   => $rows
         ];
 
         return $value;
@@ -1213,12 +1206,10 @@ class BinlogPacket
         $query = $this->read($event_size_without_header - 13 - $statusVarsLength - $schemaLength - 1);
 
         $value = [
-            "database" => $schema,
-            "table"    => '',
-            "event"    =>  [
-                "event_type" => "query",
-                "data"       => [$query]
-            ]
+            "dbname" => $schema,
+            "table"  => $this->table_name?:'',
+            "event"  => "query",
+            "data"   => $query
         ];
 
         return $value;
@@ -1228,12 +1219,10 @@ class BinlogPacket
         $xid = $this->readUint64();
 
         $value = [
-            "database" => $this->schema_name,
-            "table"    => $this->table_name,
-            "event"    =>  [
-                "event_type" => "xid",
-                "data"       => [$xid]
-            ]
+            "dbname" => $this->schema_name,
+            "table"  => $this->table_name,
+            "event"  => "xid",
+            "data"   => $xid
         ];
 
         return $value;

@@ -77,6 +77,8 @@ class Net
 
         #echo 'pack_len:'.$unpack_data,PHP_EOL;
 
-		return self::readBytes($unpack_data);
+        $pack = self::readBytes($unpack_data);
+        file_put_contents(HOME.'/xxx2.log', $header.$pack, FILE_APPEND);
+		return $pack;
 	}
 }
