@@ -68,17 +68,31 @@ class Net
      */
 	public static function readPacket()
 	{
-		//消息头 包数据长度<3>+包序列id<1>
-		$header = self::readBytes(4);
-		//消息体长度3bytes 小端序
-		$unpack_data = unpack("V",$header[0].$header[1].$header[2].chr(0))[1];
-		//包序列id
-		//$sequence_id =  unpack("C",$header[3])[1];
+        //消息头 包数据长度<3>+包序列id<1>
+        $header = self::readBytes(4);
+        //消息体长度3bytes 小端序
+        $dataLength = unpack("V",$header[0].$header[1].$header[2].chr(0))[1];
+        //包序列id
+        //$sequence_id =  unpack("C",$header[3])[1];
+        $result = self::readBytes($dataLength);
 
-        #echo 'pack_len:'.$unpack_data,PHP_EOL;
+        if($dataLength==16777215) {
+            //超出16M大小的数据包 https://dev.mysql.com/doc/internals/en/sending-more-than-16mbyte.html
+            #0xffffff
+            while (true) {
+                //消息头 包数据长度<3>+包序列id<1>
+                $header = self::readBytes(4);
+                //消息体长度3bytes 小端序
+                $dataLength = unpack("V",$header[0].$header[1].$header[2].chr(0))[1];
+                //包序列id
+                //$sequence_id =  unpack("C",$header[3])[1];
 
-        $pack = self::readBytes($unpack_data);
-        file_put_contents(HOME.'/xxx2.log', $header.$pack, FILE_APPEND);
-		return $pack;
+                $result .= self::readBytes($dataLength);
+                if($dataLength<16777215) break;
+            }
+        }
+
+        file_put_contents(HOME.'/xxx2.log', $header.$result, FILE_APPEND);
+		return $result;
 	}
 }

@@ -178,7 +178,6 @@ class BinlogPacket
                 break;
             default:
                 wing_debug("未知事件", $event_type, $pack);
-                #wing_log("binlog_not_support_event", $event_type, $pack);
                 break;
         }
         if(isset($data["dbname"])){
@@ -249,54 +248,31 @@ class BinlogPacket
     {
         $c = ord($this->read(1));
         if ($c == Column::NULL) {
-            return '';
+            return null;
         }
-
         if ($c < Column::UNSIGNED_CHAR) {
             return $c;
         }
-
         if ($c == Column::UNSIGNED_SHORT) {
-            return $this->unpackUint16($this->read(Column::UNSIGNED_SHORT_LENGTH));
+            return $this->readUint16();
         }
-
         if ($c == Column::UNSIGNED_INT24) {
-            return $this->unpackInt24($this->read(Column::UNSIGNED_INT24_LENGTH));
+            return $this->readUint24();
         }
 
         if ($c == Column::UNSIGNED_INT64) {
-            return $this->unpackInt64($this->read(Column::UNSIGNED_INT64_LENGTH));
+            return $this->readUint64();
         }
 
+        #throw new \Exception('Column num ' . $c . ' not handled');
         return null;
     }
 
-    public function unpackUint16($data)
+    public function unpackUInt64(string $binary)
     {
-        return unpack("S",$data[0] . $data[1])[1];
-    }
+        $data = unpack('V*', $binary);
 
-    public function unpackInt24($data)
-    {
-        $a  = (int)(ord($data[0]) & 0xFF);
-        $a += (int)((ord($data[1]) & 0xFF) << 8);
-        $a += (int)((ord($data[2]) & 0xFF) << 16);
-
-        return $a;
-    }
-
-    public function unpackInt64($data)
-    {
-        $a  = (int)(ord($data[0]) & 0xFF);
-        $a += (int)((ord($data[1]) & 0xFF) << 8);
-        $a += (int)((ord($data[2]) & 0xFF) << 16);
-        $a += (int)((ord($data[3]) & 0xFF) << 24);
-        $a += (int)((ord($data[4]) & 0xFF) << 32);
-        $a += (int)((ord($data[5]) & 0xFF) << 40);
-        $a += (int)((ord($data[6]) & 0xFF) << 48);
-        $a += (int)((ord($data[7]) & 0xFF) << 56);
-
-        return $a;
+        return bcadd((string)$data[1], bcmul((string)$data[2], bcpow('2', '32')));
     }
 
     public function readInt24()
@@ -339,7 +315,7 @@ class BinlogPacket
 
     public function readUint16()
     {
-        return unpack('S', $this->read(2))[1];
+        return unpack('v', $this->read(2))[1];
     }
 
     public function readUint24()
@@ -383,19 +359,8 @@ class BinlogPacket
     */
     public function readUint64()
     {
-        $binary      = $this->read(8);
+        $binary = $this->read(8);
         $data = unpack('V*', $binary);
-        return bcadd((string)$data[1], bcmul((string)$data[2], bcpow('2', '32')));
-    }
-
-    /**
-     * @param string $binary
-     * @return string
-     */
-    public function unpackUInt64(string $binary)
-    {
-        $data = unpack('V*', $binary);
-
         return bcadd((string)$data[1], bcmul((string)$data[2], bcpow('2', '32')));
     }
 
@@ -409,31 +374,24 @@ class BinlogPacket
         if($size == 1) {
             return $this->readUint8();
         }
-
         else if($size == 2) {
             return $this->readUint16();
         }
-
         else if($size == 3) {
             return $this->readUint24();
         }
-
         else if($size == 4) {
             return $this->readUint32();
         }
-
         else if($size == 5) {
             return $this->readUint40();
         }
-
         else if($size == 6) {
             return $this->readUint48();
         }
-
         else if($size == 7) {
             return $this->readUint56();
         }
-
         else if($size == 8) {
             return $this->readUint64();
         }
@@ -453,23 +411,18 @@ class BinlogPacket
         if ($size == 1) {
             return unpack('c', $this->read($size))[1];
         }
-
         else if( $size == 2) {
             return unpack('n', $this->read($size))[1];
         }
-
         else if( $size == 3) {
             return $this->readInt24Be();
         }
-
         else if( $size == 4) {
             return unpack('N', $this->read($size))[1];
         }
-
         else if( $size == 5) {
             return $this->readInt40Be();
         }
-
         else if( $size == 8) {
             return unpack('N', $this->read($size))[1];
         }
@@ -1150,22 +1103,16 @@ class BinlogPacket
 
     public function updateRow($event_type, $size)
     {
-        //$table_id =
-        $this->readTableId();
+        $table_id =$this->readTableId();
+        $this->read(2); #$flags
 
         if (in_array($event_type, [
             EventType::DELETE_ROWS_EVENT_V2,
             EventType::WRITE_ROWS_EVENT_V2,
             EventType::UPDATE_ROWS_EVENT_V2
         ])) {
-            $this->read(2);
-            //$flags = unpack('S', $this->read(2))[1];
-            $extra_data_length = unpack('S', $this->read(2))[1];
-            //$extra_data =
-            $this->read($extra_data_length / 8);
-        } else {
-            $this->read(2);
-            //$flags = unpack('S', $this->read(2))[1];
+            $extra_data_length = $this->readUint16(); #extra-data-length
+            $this->read($extra_data_length / 8); #extra-data
         }
 
         //Body
@@ -1207,7 +1154,6 @@ class BinlogPacket
 
         $value = [
             "dbname" => $schema,
-            "table"  => $this->table_name?:'',
             "event"  => "query",
             "data"   => $query
         ];
@@ -1220,7 +1166,6 @@ class BinlogPacket
 
         $value = [
             "dbname" => $this->schema_name,
-            "table"  => $this->table_name,
             "event"  => "xid",
             "data"   => $xid
         ];

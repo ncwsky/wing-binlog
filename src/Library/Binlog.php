@@ -125,7 +125,7 @@ class Binlog
      */
     public function registerSlave($slave_server_id)
     {
-        $this->checksum = !!$this->getCheckSum();
+        $this->checksum = $this->isCheckSum();
         // checksum
         if ($this->checksum) {
             Mysql::query("set @master_binlog_checksum=@@global.binlog_checksum");
@@ -159,10 +159,10 @@ class Binlog
     }
 
 
-    public function getCheckSum()
+    public function isCheckSum()
     {
         $res = $this->db_handler->row("SHOW GLOBAL VARIABLES LIKE 'BINLOG_CHECKSUM'");
-        return $res['Value'];
+        return isset($res['Value']) && $res['Value'] !== 'NONE';
     }
 
     /**

@@ -133,6 +133,7 @@ class BinlogWorker extends BaseWorker
             } catch (\RuntimeException $e) {
                 usleep(500000);
                 $this->connect(load_config("app"));
+                wing_log('retry', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
             } catch (\Exception $e) {
                 wing_debug($e->getMessage());
                 wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());

@@ -539,31 +539,24 @@ class Packet
 		if ($size == 1) {
 			return $this->readUint8();
 		}
-
 		else if ($size == 2) {
 			return $this->readUint16();
 		}
-
 		else if ($size == 3) {
 			return $this->readUint24();
 		}
-
 		else if ($size == 4) {
 			return $this->readUint32();
 		}
-
 		else if ($size == 5) {
 			return $this->readUint40();
 		}
-
 		else if ($size == 6) {
 			return $this->readUint48();
 		}
-
 		else if ($size == 7) {
 			return $this->readUint56();
 		}
-
 		else if ($size == 8) {
 			return $this->readUint64();
 		}
