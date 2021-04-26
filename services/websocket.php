@@ -11,8 +11,6 @@ use Workerman\Worker;
 
 $host = "0.0.0.0";
 $port = 9998;
-$workers = 1;
-
 
 foreach ($argv as $item) {
     if (strpos($item,"--host") === 0)
@@ -26,7 +24,7 @@ foreach ($argv as $item) {
 $workers = intval($workers);
 if ($workers <= 0)
     $workers = 1;
-//echo "websocket://".$host.":".$port;
+
 // Create a Websocket server
 $ws_worker = new Worker("websocket://".$host.":".$port);
 
@@ -40,7 +38,6 @@ $ws_worker->onConnect = function($connection)
     echo "New connection\n";
 };
 
-
 // Emitted when data received
 $ws_worker->onMessage = function($connection, $data) use($ws_worker)
 {
@@ -48,53 +45,44 @@ $ws_worker->onMessage = function($connection, $data) use($ws_worker)
     static $msg_all;
     static $count = 0;
     $split = "\r\n\r\n\r\n";
-    //while ($msg = socket_read($socket, 10240))
-    {
-        //echo $msg,"\r\n\r\n";
-        $msg_all .= $data;
-        $temp = explode($split, $msg_all);
-        if (count($temp) >= 2) {
-            $msg_all = array_pop($temp);
-            foreach ($temp as $v) {
-                $arr = json_decode($v , true);
-                if (!$v) {
-                    echo "消息为空\r\n";
-                    continue;
-                }
-                if (!is_array($arr) || count($arr) <= 0) {
-                   echo "不是标准数组\r\n";
-                   echo "=====>".$v."<=====";
-                    continue;
-                }
-                $count++;
-                echo $v, "\r\n";
-                echo "收到消息次数：", $count, "\r\n\r\n";
 
-                foreach ($ws_worker->connections as $c) {
-                    if ($c == $connection) {
-                        echo "当前的连接不发送\r\n";
-                        continue;
-                    }
-                    //  echo "发送tcp消息：", $content,"\r\n";
-                    $res = $c->send($v."\r\n\r\n\r\n");
-                    if ($res) {
-                        echo "成功\r\n";
-                    } else {
-                        echo "失败\r\n";
-                    }
-                    // $send_count2++;
+    //echo $msg,"\r\n\r\n";
+    $msg_all .= $data;
+    $temp = explode($split, $msg_all);
+    if (count($temp) >= 2) {
+        $msg_all = array_pop($temp);
+        foreach ($temp as $v) {
+            $arr = json_decode($v , true);
+            if (!$v) {
+                echo "消息为空\r\n";
+                continue;
+            }
+            if (!is_array($arr) || count($arr) <= 0) {
+               echo "不是标准数组\r\n";
+               echo "=====>".$v."<=====";
+                continue;
+            }
+            $count++;
+            echo $v, "\r\n";
+            echo "收到消息次数：", $count, "\r\n\r\n";
+
+            foreach ($ws_worker->connections as $c) {
+                if ($c == $connection) {
+                    echo "当前的连接不发送\r\n";
+                    continue;
                 }
+                //  echo "发送tcp消息：", $content,"\r\n";
+                $res = $c->send($v."\r\n\r\n\r\n");
+                if ($res) {
+                    echo "成功\r\n";
+                } else {
+                    echo "失败\r\n";
+                }
+                // $send_count2++;
             }
         }
-        unset($temp);
     }
-
-
-
-    // });
-
-
-
+    unset($temp);
 };
 $ws_worker->onError = function ()
 {
