@@ -178,9 +178,9 @@ class BinlogPacket
                 wing_debug("未知事件", $event_type, $pack);
                 break;
         }
-        if(isset($data["dbname"])){
+/*        if(isset($data["dbname"])){
             $data["event_size"] = $event_size;
-        }
+        }*/
 
         if (WING_DEBUG) {
             $msg  = $file_name;
