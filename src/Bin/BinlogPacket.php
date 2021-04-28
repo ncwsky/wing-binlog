@@ -329,7 +329,7 @@ class BinlogPacket
 
     public function readInt32Be()
     {
-        $res = unpack('N', $this->read(4));
+        $res = unpack('N', $this->read(4))[1];
         if ($res >= 0x80000000) {
             $res -= 0x100000000;
         }
@@ -369,9 +369,11 @@ class BinlogPacket
         return $this->unpackUInt64($this->read(8));
     }
 
-    public function readInt64()
+    public function readInt64(): string
     {
-        return $this->readUint64();
+        $data = unpack('V*', $this->read(8));
+
+        return bcadd((string)$data[1], (string)($data[2] << 32));
     }
 
     public function unpackUInt64(string $binary)
