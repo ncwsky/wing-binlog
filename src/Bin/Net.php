@@ -92,7 +92,7 @@ class Net
             }
         }
 
-        file_put_contents(HOME.'/xxx2.log', $header.$result, FILE_APPEND);
+        #file_put_contents(HOME.'/xxx2.log', $header.$result, FILE_APPEND);
 		return $result;
 	}
 }

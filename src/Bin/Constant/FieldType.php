@@ -60,7 +60,7 @@ class FieldType
     const BIGINT        = 8; //alias LONGLONG 8 bytes store_param_int64
     const INT24         = 9;
     const DATE          = 10;
-    const TIME          = 11;
+    const TIME          = 11; //5.5
     const DATETIME      = 12;
     const YEAR          = 13;
     const NEWDATE       = 14;

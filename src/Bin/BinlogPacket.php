@@ -266,11 +266,28 @@ class BinlogPacket
         return null;
     }
 
-    public function unpackUInt64(string $binary)
+    public function readUint8()
     {
-        $data = unpack('V*', $binary);
+        return unpack('C', $this->read(1))[1];
+    }
+    public function readInt8()
+    {
+        $re = unpack('c', $this->read(1))[1];
+        return $re >= 0x80 ? $re - 0x100 : $re;
+    }
 
-        return bcadd((string)$data[1], bcmul((string)$data[2], bcpow('2', '32')));
+    public function readUint16()
+    {
+        return unpack('v', $this->read(2))[1];
+    }
+    public function readInt16()
+    {
+        return unpack('s', $this->read(2))[1];
+    }
+    public function readInt16Be(): int
+    {
+        $re = unpack('n', $this->read(2))[1];
+        return $re >= 0x8000 ? $re - 0x10000 : $re;
     }
 
     public function readInt24()
@@ -284,47 +301,39 @@ class BinlogPacket
         return $res;
     }
 
-    public function readInt24Be()
-    {
-        $data = unpack('C3', $this->read(3));
-        $res  = ($data[1] << 16) | ($data[2] << 8) | $data[3];
-
-        if ($res >= 0x800000) {
-            $res -= 0x1000000;
-        }
-        return $res;
-    }
-
-    public function readInt32Be()
-    {
-        $data = unpack('C4', $this->read(4));
-        $res  = ($data[1] << 24)|($data[2] << 16) | ($data[3] << 8) | $data[4];
-
-        if ($res >= 0x800000) {
-            $res -= 0x1000000;
-        }
-        return $res;
-    }
-
-    public function readUint8()
-    {
-        return unpack('C', $this->read(1))[1];
-    }
-
-    public function readUint16()
-    {
-        return unpack('v', $this->read(2))[1];
-    }
-
     public function readUint24()
     {
         $data = unpack("C3", $this->read(3));
         return $data[1] + ($data[2] << 8) + ($data[3] << 16);
     }
 
+    public function readInt24Be()
+    {
+        $data = unpack('C3', $this->read(3));
+        $res  = ($data[1] << 16) | ($data[2] << 8) | $data[3];
+        if ($res >= 0x800000) {
+            $res -= 0x1000000;
+        }
+        return $res;
+    }
+
     public function readUint32()
     {
-        return unpack('I', $this->read(4))[1];
+        return unpack('V', $this->read(4))[1];
+    }
+
+    public function readInt32()
+    {
+        return unpack('l', $this->read(4))[1];
+    }
+
+    public function readInt32Be()
+    {
+        $res = unpack('N', $this->read(4));
+        if ($res >= 0x80000000) {
+            $res -= 0x100000000;
+        }
+        return $res;
     }
 
     public function readUint40()
@@ -357,9 +366,7 @@ class BinlogPacket
     */
     public function readUint64()
     {
-        $binary = $this->read(8);
-        $data = unpack('V*', $binary);
-        return bcadd((string)$data[1], bcmul((string)$data[2], bcpow('2', '32')));
+        return $this->unpackUInt64($this->read(8));
     }
 
     public function readInt64()
@@ -367,30 +374,29 @@ class BinlogPacket
         return $this->readUint64();
     }
 
+    public function unpackUInt64(string $binary)
+    {
+        $data = unpack('V*', $binary);
+        return bcadd((string)$data[1], bcmul((string)$data[2], bcpow('2', '32')));
+    }
+
     public function readUintBySize($size)
     {
-        if($size == 1) {
+        if ($size == 1) {
             return $this->readUint8();
-        }
-        else if($size == 2) {
+        } else if ($size == 2) {
             return $this->readUint16();
-        }
-        else if($size == 3) {
+        } else if ($size == 3) {
             return $this->readUint24();
-        }
-        else if($size == 4) {
+        } else if ($size == 4) {
             return $this->readUint32();
-        }
-        else if($size == 5) {
+        } else if ($size == 5) {
             return $this->readUint40();
-        }
-        else if($size == 6) {
+        } else if ($size == 6) {
             return $this->readUint48();
-        }
-        else if($size == 7) {
+        } else if ($size == 7) {
             return $this->readUint56();
-        }
-        else if($size == 8) {
+        } else if ($size == 8) {
             return $this->readUint64();
         }
 
@@ -399,8 +405,7 @@ class BinlogPacket
 
     public function readLengthCodedPascalString($size)
     {
-        $length = $this->readUintBySize($size);
-        return $this->read($length);
+        return $this->read($this->readUintBySize($size));
     }
 
     //读取大端序
@@ -408,22 +413,22 @@ class BinlogPacket
     {
         //Read a big endian integer values based on byte number
         if ($size == 1) {
-            return unpack('c', $this->read($size))[1];
+            return $this->readInt8();
         }
         else if( $size == 2) {
-            return unpack('n', $this->read($size))[1];
+            return $this->readInt16Be();
         }
         else if( $size == 3) {
             return $this->readInt24Be();
         }
         else if( $size == 4) {
-            return unpack('N', $this->read($size))[1];
+            return $this->readInt32Be();
         }
         else if( $size == 5) {
             return $this->readInt40Be();
         }
         else if( $size == 8) {
-            return unpack('N', $this->read($size))[1];
+            return unpack('J', $this->read($size))[1];
         }
 
         return null;
@@ -436,10 +441,9 @@ class BinlogPacket
      */
     public function hasNext($size)
     {
-        if ($this->offset  < $size) {
+        if ($this->offset  < $size) { #-20
             return true;
         }
-        #file_put_contents(HOME.'/xxx.log', 'offset:'.$this->offset.' ++ size:'.$size.PHP_EOL, FILE_APPEND);
         return false;
     }
 
@@ -572,50 +576,42 @@ class BinlogPacket
         $field['is_primary']         = $column_schema["COLUMN_KEY"] == "PRI";
 
         if ($field['type'] == FieldType::VARCHAR) {
-            $field['max_length'] = unpack('s', $this->read(2))[1];
+            $field['max_length'] = $this->readUint16();
         }
-
         else if ($field['type'] == FieldType::DOUBLE) {
             $field['size'] = $this->readUint8();
         }
-
         else if ($field['type'] == FieldType::FLOAT) {
             $field['size'] = $this->readUint8();
         }
-
         else if ($field['type'] == FieldType::TIMESTAMP2) {
             $field['fsp'] = $this->readUint8();
         }
-
         else if ($field['type'] == FieldType::DATETIME2) {
             $field['fsp']= $this->readUint8();
         }
-
         else if ($field['type'] == FieldType::TIME2) {
             $field['fsp'] = $this->readUint8();
         }
-
         else if ($field['type'] == FieldType::TINY && $column_schema["COLUMN_TYPE"] == "tinyint(1)") {
             $field['type_is_bool'] = True;
         }
-
         else if ($field['type'] == FieldType::VAR_STRING || $field['type'] == FieldType::STRING) {
             $this->_readStringMetadata($column_schema, $field);
         }
-
         else if( $field['type'] == FieldType::BLOB) {
             $field['length_size'] = $this->readUint8();
         }
-
         else if ($field['type'] == FieldType::GEOMETRY) {
             $field['length_size'] = $this->readUint8();
         }
-
+        else if ($field['type'] == FieldType::JSON) {
+            $field['length_size'] = $this->readUint8();
+        }
         else if( $field['type'] == FieldType::NEWDECIMAL) {
             $field['precision'] = $this->readUint8();
             $field['decimals'] = $this->readUint8();
         }
-
         else if ($field['type'] == FieldType::BIT) {
             $bits  = $this->readUint8();
             $bytes = $this->readUint8();
@@ -770,6 +766,12 @@ class BinlogPacket
         if ($value == 0) {  # nasty mysql 0000-00-00 dates
             return null;
         }
+/*        $date = \DateTime::createFromFormat('YmdHis', $value)->format('Y-m-d H:i:s');
+        if (array_sum(\DateTime::getLastErrors()) > 0) {
+            return null;
+        }
+
+        return $date;*/
 
         $date  = $value / 1000000;
         $time  = (int)($value % 1000000);
@@ -853,29 +855,24 @@ class BinlogPacket
         */
         $read = 0;
         $time = '';
-
-        if ($column['fsp'] == 1 or $column['fsp'] == 2) {
+        $fsp = $column ['fsp'];
+        if ($fsp == 1 || $fsp == 2) {
             $read = 1;
-        }
-
-        else if($column['fsp'] == 3 or $column['fsp'] == 4) {
+        } else if ($fsp == 3 || $fsp == 4) {
             $read = 2;
-        }
-
-        else if ($column ['fsp'] == 5 or $column['fsp'] == 6) {
+        } else if ($fsp == 5 || $fsp == 6) {
             $read = 3;
         }
 
         if ($read > 0) {
             $microsecond = $this->readIntBeBySize($read);
-            if ($column['fsp'] % 2) {
-                $time = (int)($microsecond / 10);
-            } else {
-                $time = $microsecond;
+            if ($fsp % 2) {
+                $microsecond = (int)($microsecond / 10);
             }
+            $time = $microsecond * (10 ** (6 - $fsp));
         }
 
-        return $time;
+        return (string)$time;
     }
 
     private function _readDate()
@@ -896,6 +893,54 @@ class BinlogPacket
 
         return $year.'-'.$month.'-'.$day;
     }
+
+    private function _getSet($column)
+    {
+        // we read set columns as a bitmap telling us which options are enabled
+        $bit_mask = $this->readUIntBySize($column['size']);
+        $sets = [];
+        foreach ($column['set_values'] as $k => $item) {
+            if ($bit_mask & (2 ** $k)) {
+                $sets[] = $item;
+            }
+        }
+
+        return $sets;
+    }
+
+    private function _getBit($column)
+    {
+        $res = '';
+        for ($byte = 0; $byte < $column['bytes']; ++$byte) {
+            $current_byte = '';
+            $data = $this->readUInt8();
+            if (0 === $byte) {
+                if (1 === $column['bytes']) {
+                    $end = $column['bits'];
+                } else {
+                    $end = $column['bits'] % 8;
+                    if (0 === $end) {
+                        $end = 8;
+                    }
+                }
+            } else {
+                $end = 8;
+            }
+
+            for ($bit = 0; $bit < $end; ++$bit) {
+                if ($data & (1 << $bit)) {
+                    $current_byte .= '1';
+                } else {
+                    $current_byte .= '0';
+                }
+
+            }
+            $res .= strrev($current_byte);
+        }
+
+        return $res;
+    }
+
 
     private function columnFormat($cols_bitmap)
     {
@@ -918,94 +963,30 @@ class BinlogPacket
                 $values[$name] = null;
                 continue;
             }
-
             if (self::_isNull($null_bitmap, $nullBitmapIndex)) {
                 $values[$name] = null;
             }
-
             else if ($column['type'] == FieldType::TINY) {
                 if ($unsigned) {
-                    $values[$name] = unpack("C", $this->read(1))[1];
+                    $values[$name] = $this->readUint8();
                 } else {
-                    $values[$name] = unpack("c", $this->read(1))[1];
+                    $values[$name] = $this->readInt8();
                 }
             }
-
             else if ($column['type'] == FieldType::SHORT) {
                 if ($unsigned) {
-                    $values[$name] = unpack("S", $this->read(2))[1];
+                    $values[$name] = $this->readUint16();
                 } else {
-                    $values[$name] = unpack("s", $this->read(2))[1];
+                    $values[$name] = $this->readInt16();
                 }
             }
-
             else if ($column['type'] == FieldType::LONG) {
                 if ($unsigned) {
-                    $values[$name] = unpack("I", $this->read(4))[1];
+                    $values[$name] = $this->readUint32();
                 } else {
-                    $values[$name] = unpack("i", $this->read(4))[1];
+                    $values[$name] = $this->readInt32();
                 }
             }
-
-            else if ($column['type'] == FieldType::INT24) {
-                if ($unsigned) {
-                    $values[$name] = $this->readUint24();
-                } else {
-                    $values[$name] = $this->readInt24();
-                }
-            }
-
-            else if ($column['type'] == FieldType::FLOAT) {
-                $values[$name] = unpack("f", $this->read(4))[1];
-            }
-
-            else if ($column['type'] == FieldType::DOUBLE) {
-                $values[$name] = unpack("d", $this->read(8))[1];
-            }
-
-            else if ($column['type'] == FieldType::VARCHAR || $column['type'] == FieldType::STRING) {
-                if ($column['max_length'] > 255) {
-                    $values[$name] = $this->_readString(2, $column);
-                } else {
-                    $values[$name] = $this->_readString(1, $column);
-                }
-            }
-
-            else if ($column['type'] == FieldType::NEWDECIMAL) {
-                $values[$name] = $this->readNewDecimal($column);
-            }
-
-            else if ($column['type'] == FieldType::BLOB) {
-                $values[$name] = self::_readString($column['length_size'], $column);
-            }
-
-            else if ($column['type'] == FieldType::DATETIME) {
-
-                $values[$name] = $this->_readDatetime();
-            }
-
-            else if ($column['type'] == FieldType::DATETIME2) {
-                $values[$name] = $this->_readDatetime2($column);
-            }
-
-            else if ($column['type'] == FieldType::TIME2) {
-                $values[$name] = self::_readTime2($column);
-            }
-
-            else if ($column['type'] == FieldType::TIMESTAMP2){
-                $time  = date('Y-m-d H:i:m',$this->readIntBeBySize(4));
-                $time .= '.' . self::_addFspToTime($column);// 微妙
-                $values[$name] = $time;
-            }
-
-            else if ($column['type'] == FieldType::DATE) {
-                $values[$name] = $this->_readDate();
-            }
-
-            else if ($column['type'] == FieldType::TIMESTAMP) {
-                $values[$name] = date('Y-m-d H:i:s', $this->readUint32());
-            }
-
             else if ($column['type'] == FieldType::LONGLONG) {
                 if ($unsigned) {
                     $values[$name] = $this->readUint64();
@@ -1013,8 +994,75 @@ class BinlogPacket
                     $values[$name] = $this->readInt64();
                 }
             }
+            else if ($column['type'] == FieldType::INT24) {
+                if ($unsigned) {
+                    $values[$name] = $this->readUint24();
+                } else {
+                    $values[$name] = $this->readInt24();
+                }
+            }
+            else if ($column['type'] == FieldType::FLOAT) {
+                $values[$name] = unpack("f", $this->read(4))[1];
+            }
+            else if ($column['type'] == FieldType::DOUBLE) {
+                $values[$name] = unpack("d", $this->read(8))[1];
+            }
+            else if ($column['type'] == FieldType::VARCHAR || $column['type'] == FieldType::STRING) {
+                if ($column['max_length'] > 255) {
+                    $values[$name] = $this->_readString(2, $column);
+                } else {
+                    $values[$name] = $this->_readString(1, $column);
+                }
+            }
+            else if ($column['type'] == FieldType::NEWDECIMAL) {
+                $values[$name] = $this->readNewDecimal($column);
+            }
+            else if ($column['type'] == FieldType::BLOB) {
+                $values[$name] = self::_readString($column['length_size'], $column);
+            }
+            else if ($column['type'] == FieldType::DATETIME) {
+                $values[$name] = $this->_readDatetime();
+            }
+            else if ($column['type'] == FieldType::DATETIME2) {
+                $values[$name] = $this->_readDatetime2($column);
+            }
+            else if ($column['type'] == FieldType::TIME) {
+                $values[$name] = self::_readTime();
+            }
+            else if ($column['type'] == FieldType::TIME2) {
+                $values[$name] = self::_readTime2($column);
+            }
+            else if ($column['type'] == FieldType::TIMESTAMP) {
+                $values[$name] = date('Y-m-d H:i:s', $this->readUint32());
+            }
+            else if ($column['type'] == FieldType::TIMESTAMP2){
+                $time = date('Y-m-d H:i:s', $this->readIntBeBySize(4));
+                $fsp = self::_addFspToTime($column);// 微妙
+                if ('' !== $fsp) $time .= '.' . $fsp;
+                $values[$name] = $time;
+            }
+            else if ($column['type'] == FieldType::DATE) {
+                $values[$name] = $this->_readDate();
+            }
+            else if ($column['type'] == FieldType::YEAR) {
+                // https://dev.mysql.com/doc/refman/5.7/en/year.html
+                $year = $this->readUInt8();
+                $values[$name] = 0 === $year ? null : 1900 + $year;
+            }
             else if($column['type'] == FieldType::ENUM) {
-                $values[$name] = $column['enum_values'][$this->readUintBySize($column['size']) - 1];
+                $values[$name] = $column['enum_values'][$this->readUintBySize($column['size']) - 1]??'';
+            }
+            else if($column['type'] == FieldType::SET) {
+                $values[$name] = $this->_getSet($column);
+            }
+            else if($column['type'] == FieldType::BIT) {
+                $values[$name] = $this->_getBit($column);
+            }
+            else if($column['type'] == FieldType::GEOMETRY) {
+                $values[$name] = $this->_readString($column['length_size'], $column);
+            }
+            else if($column['type'] == FieldType::JSON) { //当字符串处理
+                $values[$name] = $this->_readString($column['length_size'], $column);
             }
 
             $nullBitmapIndex += 1;
@@ -1172,6 +1220,16 @@ class BinlogPacket
         return $value;
     }
 
+    private function _readTime()
+    {
+        $data = $this->readUInt24();
+        if (0 === $data) {
+            return '00:00:00';
+        }
+
+        return sprintf('%s%02d:%02d:%02d', $data < 0 ? '-' : '', $data / 10000, ($data % 10000) / 100, $data % 100);
+    }
+
     private function _readTime2($column)
     {
         /*
@@ -1210,5 +1268,4 @@ class BinlogPacket
 
         return $t;
     }
-
 }
