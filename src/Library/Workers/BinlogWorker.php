@@ -30,11 +30,7 @@ class BinlogWorker extends BaseWorker
         $this->binlog = new Binlog(new PDO);
         $this->connect($config);
 
-        if ($config
-            && isset($config["subscribe"])
-            && is_array($config["subscribe"])
-            && count($config["subscribe"]) > 0
-        ) {
+        if (isset($config["subscribe"]) && is_array($config["subscribe"])) {
             foreach ($config["subscribe"] as $class => $params) {
                 $params["daemon"]  = $daemon;
                 $params["workers"] = $workers;

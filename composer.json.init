@@ -5,6 +5,7 @@
         "ext-bcmath": "*",
         "ext-json": "*",
         "ext-sockets": "*",
+        "ext-curl": "*",
         "symfony/console": "^5.2",
         "psr/log": "dev-master",
         "php-amqplib/php-amqplib": "2.9.2",

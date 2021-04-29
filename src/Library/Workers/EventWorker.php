@@ -33,11 +33,7 @@ class EventWorker extends BaseWorker
         }
 
         $subscribe = load_config("app");
-        if ($subscribe
-            && isset($subscribe["subscribe"])
-            && is_array($subscribe["subscribe"])
-            && count($subscribe["subscribe"]) > 0
-        ) {
+        if (isset($subscribe["subscribe"]) && is_array($subscribe["subscribe"])) {
             foreach ($subscribe["subscribe"] as $class => $params) {
                 $params["daemon"]  = $daemon;
                 $params["workers"] = $workers;

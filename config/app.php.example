@@ -13,6 +13,8 @@ return  [
         "password" => "123456",
         "port"     => 3306
     ],
+    //异常通知地址 post {title,msg}
+    'warn_notice_url'=>'https://xxx.com/warn-notice',
     //以下配置均属于可选订阅 可以任意增加 只需要遵循接口ISubscribe实现即可
     //\Wing\Subscribe\Redis::class 是实现 后面的数组是构造函数参数
     "subscribe" => [
