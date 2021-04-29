@@ -302,11 +302,11 @@ if (!function_exists("wing_log")) {
         $log .= "\r\n";
         file_put_contents(HOME."/logs/".$level.".log", $log, FILE_APPEND);
 
-        if(strpos($msg,'异常退出')!==false){
+        if(strpos($msg,'退出')!==false){
             //发送通知
             $appConfig = load_config("app");
             if (!empty($appConfig['warn_notice_url'])) {
-                $ret = curlSend($appConfig['warn_notice_url'], 'POST', ['title' => 'binglog异常退出', 'msg' => $msg]);
+                $ret = curlSend($appConfig['warn_notice_url'], 'POST', ['title' => 'binglog退出', 'msg' => $msg]);
                 file_put_contents(HOME . "/logs/" . $level . ".log", 'warn_notice:' . $ret, FILE_APPEND);
             }
         }
