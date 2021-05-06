@@ -7,10 +7,10 @@ return  [
     "slave_server_id" => 9999,
     //必须配置：mysql
     "mysql" => [
-        "db_name"  => "wordpress",
+        "db_name"  => "",
         "host"     => "127.0.0.1",
-        "user"     => "root",
-        "password" => "123456",
+        "user"     => "slave",
+        "password" => "slave",
         "port"     => 3306
     ],
     //异常通知地址 post {title,msg}
@@ -18,6 +18,16 @@ return  [
     //以下配置均属于可选订阅 可以任意增加 只需要遵循接口ISubscribe实现即可
     //\Wing\Subscribe\Redis::class 是实现 后面的数组是构造函数参数
     "subscribe" => [
+        //db
+        \Wing\Subscribe\Db::class => [
+            "allow_db_table" => [  //允许的库及表
+                'service'=>['order','merchant'],
+            ],
+            'db_map'=>[
+                'service'=>'dbname'
+            ]
+        ],
+
         //可选redis队列订阅
         \Wing\Subscribe\Redis::class => [
             "host"     => "127.0.0.1",
@@ -25,7 +35,7 @@ return  [
             "password" => null,                          //无密码时必须为null
             "queue"    => "----wing-mysql-events-queue----" //默认的redis队列名称，队列使用rpush从尾部进入队列
         ],
-
+/*
         //可选websocket订阅
         \Wing\Subscribe\WebSocket::class => [
             "host"  => "0.0.0.0",
@@ -36,6 +46,6 @@ return  [
         \Wing\Subscribe\Tcp::class => [
             "host" => "0.0.0.0",
             "port" => 9997
-        ],
+        ]*/
     ]
 ];
