@@ -14,6 +14,7 @@ class Redis implements ISubscribe
 {
     private $redis;
     private $queue;
+    public $allowDbTable = []; // 格式 ['db_name'=>1|['table_name',...],....]
 
 	public function __construct($config)
 	{
@@ -21,6 +22,7 @@ class Redis implements ISubscribe
         $port     = $config["port"];
         $password = $config["password"];
         $queue    = $config["queue"];
+        $this->allowDbTable = $config['allow_db_table']??[];
 
         $this->redis = new \Wing\Library\lib_redis([
             'host' => $host,
@@ -30,9 +32,19 @@ class Redis implements ISubscribe
         $this->queue = $queue;
 	}
 
-	public function onchange($event)
+	public function onchange($result)
 	{
-        #if($event['event']['event_type']=='query') return;
-        $this->redis->rpush($this->queue, json_encode($event));
+        //库检查
+        if(!isset($this->allowDbTable[$result['dbname']])){
+            return;
+        }
+        //表检测
+        $table = $result['table']??'';
+        if(is_array($this->allowDbTable[$result['dbname']]) && !in_array($table, $this->allowDbTable[$result['dbname']])){
+            return;
+        }
+
+        #if($result['event']=='query') return;
+        $this->redis->rpush($this->queue, json_encode($result));
 	}
 }

@@ -12,7 +12,7 @@ class Db implements ISubscribe
     public $db;
     public $allowDbTable = []; // 格式 ['db_name'=>1|['table_name',...],....]
     public $dbMap = []; //库名映射
-    protected $lastDbName = ''; //上一次的库名
+    protected $useDbName = ''; //使用的库名
     protected $currTable = '';
     protected $dataDir = '';
     protected $cache = null;
@@ -25,13 +25,26 @@ class Db implements ISubscribe
         $this->db = db();
         $this->allowDbTable = $config['allow_db_table']??[];
         $this->dbMap = $config['db_map']??[];
-        $this->lastDbName = '';
+        $this->useDbName = '';
         $this->dataDir = HOME."/cache/binlog";
         $this->cache = new File(HOME."/cache/binlog");
 	}
 	public function tableName($table, $shardId){
 	    if($table=='merchant') return $table;
+
         return $table.'-'.($shardId%10);
+    }
+    //以连锁id为分片依据
+    public function getShardId($mch_id){
+        static $chainMap = [];
+        if(isset($chainMap[$mch_id])) return $chainMap[$mch_id];
+
+        $chain_id = (int)$this->db->getCustomId('yx_tm.merchant', 'chain_id', 'id='.$mch_id);
+        $type = (int)$this->db->getCustomId('yx_tm.merchant', 'type', 'id='.$chain_id);
+        if($type!=99) $chain_id = 0; //不是tm
+
+        $chainMap[$mch_id] = $chain_id;
+        return $chain_id;
     }
 
 	public function onchange($result)
@@ -41,11 +54,11 @@ class Db implements ISubscribe
             return;
         }
         //切换库
-        if($this->lastDbName!=$result['dbname']){
+        if($this->useDbName!=$result['dbname']){
             $dbName = isset($this->dbMap[$result['dbname']]) ? $this->dbMap[$result['dbname']] : $result['dbname'];
             $this->db->execute('use '.$dbName);
 
-            $this->lastDbName = $result['dbname'];
+            $this->useDbName = $result['dbname'];
         }
         //表检测
         $this->currTable = $table = $result['table']??'';
@@ -60,6 +73,9 @@ class Db implements ISubscribe
         }*/
 
         try{
+
+
+
             switch ($result['event']){
                 case 'write_rows':
                     $this->_write($result['data']);
@@ -91,17 +107,12 @@ class Db implements ISubscribe
             error_log(json_encode($result)."\n", 3, $this->dataDir.'/fail_data');
         }
 	}
-	//以连锁id为分片依据
-	protected function shardId($mch_id){
-	    static $chainMap = [];
-	    if(isset($chainMap[$mch_id])) return $chainMap[$mch_id];
 
-	    $chain_id = (int)$this->db->getCustomId('yx_tm.merchant', 'chain_id', 'id='.$mch_id);
-        $chainMap[$mch_id] = $chain_id;
-	    return $chain_id;
-    }
 	protected function _write($data){
-        $table = $this->tableName($this->currTable, $data['mch_id']);
+        $shardId = $this->getShardId($data['mch_id']);
+        if($shardId==0) return;
+
+        $table = $this->tableName($this->currTable, $shardId);
         $model = new \Model($table);
         $model->setData($data);
         if($model->save(null, null, 0)===false){
@@ -109,8 +120,11 @@ class Db implements ISubscribe
         }
     }
 	protected function _update($data, $old){
-        $oldTable = $this->tableName($this->currTable, $old['mch_id']);
-        $table = $this->tableName($this->currTable, $data['mch_id']);
+        $shardId = $this->getShardId($data['mch_id']);
+        if($shardId==0) return;
+
+        $oldTable = $this->tableName($this->currTable, $this->getShardId($old['mch_id']));
+        $table = $this->tableName($this->currTable, $shardId);
         if($oldTable!=$table){ //分片表不一致 清除原分片旧数据
             $this->db->del($oldTable, ['id'=>$old['id']]);
         }
@@ -123,7 +137,10 @@ class Db implements ISubscribe
         }
     }
 	protected function _delete($data){
-        $table = $this->tableName($this->currTable, $data['mch_id']);
+        $shardId = $this->getShardId($data['mch_id']);
+        if($shardId==0) return;
+
+        $table = $this->tableName($this->currTable, $shardId);
 
         // order 未支付的支持删除
         if($this->currTable=='order' && $data['pay_time']==0){
@@ -133,7 +150,7 @@ class Db implements ISubscribe
         if($this->currTable=='mch_order' && $data['pay_time']==0){
             $this->db->del($table, ['id'=>$data['id']]);
 
-            $this->db->del($this->tableName('mch_ordermx', $data['mch_id']), ['mch_id'=>$data['mch_id'],'o_id'=>$data['_id']]);
+            $this->db->del($this->tableName('mch_ordermx', $shardId), ['mch_id'=>$data['mch_id'],'o_id'=>$data['_id']]);
         }
     }
 }
