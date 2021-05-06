@@ -19,8 +19,8 @@ class Db implements ISubscribe
 
 	public function __construct($config)
 	{
-        require(HOME . '/config/conf.php');
-        require(HOME . '/vendor/myphps/myphp/base.php');
+        require_once(HOME . '/config/conf.php');
+        require_once(HOME . '/vendor/myphps/myphp/base.php');
 
         $this->db = db();
         $this->allowDbTable = $config['allow_db_table']??[];
@@ -30,6 +30,7 @@ class Db implements ISubscribe
         $this->cache = new File(HOME."/cache/binlog");
 	}
 	public function tableName($table, $shardId){
+	    if($table=='merchant') return $table;
         return $table.'-'.($shardId%10);
     }
 
@@ -90,6 +91,15 @@ class Db implements ISubscribe
             error_log(json_encode($result)."\n", 3, $this->dataDir.'/fail_data');
         }
 	}
+	//以连锁id为分片依据
+	protected function shardId($mch_id){
+	    static $chainMap = [];
+	    if(isset($chainMap[$mch_id])) return $chainMap[$mch_id];
+
+	    $chain_id = (int)$this->db->getCustomId('yx_tm.merchant', 'chain_id', 'id='.$mch_id);
+        $chainMap[$mch_id] = $chain_id;
+	    return $chain_id;
+    }
 	protected function _write($data){
         $table = $this->tableName($this->currTable, $data['mch_id']);
         $model = new \Model($table);
