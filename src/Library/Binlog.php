@@ -1,5 +1,6 @@
 <?php namespace Wing\Library;
 
+use Wing\Bin\Auth\Auth;
 use Wing\Bin\BinlogPacket;
 use Wing\Bin\Mysql;
 use Wing\Bin\Net;
@@ -16,7 +17,7 @@ use Wing\Cache\File;
 class Binlog
 {
     /**
-    * @var IDb $db_handler
+    * @var PDO|IDb $db_handler
     */
     private $db_handler;
 
@@ -52,6 +53,11 @@ class Binlog
     public $checksum;
 
     /**
+     * 写日志点
+     * @var bool
+     */
+    public static $forceWriteLogPos = false;
+    /**
      * 构造函数
      *
      * @param IDb $db_handler
@@ -82,6 +88,7 @@ class Binlog
             $this->binlog_file = $info["File"];
             $this->last_pos = $info["Position"];
 
+            self::$forceWriteLogPos = true;
             //缓存初始复制点
             $this->setLastBinLog($this->binlog_file);
             $this->setLastPosition(0, $this->last_pos);
@@ -92,8 +99,34 @@ class Binlog
             $this->last_pos,
             "超始复制点"
         );
+        $this->connect($config);
     }
 
+    //连接mysql、认证连接，初始化Net::$socket
+    public function connect($config)
+    {
+        try {
+            //认证
+            Auth::execute(
+                $config["mysql"]["host"],
+                $config["mysql"]["user"],
+                $config["mysql"]["password"],
+                $config["mysql"]["db_name"],
+                $config["mysql"]["port"]
+            );
+
+            //注册为slave
+            $this->registerSlave($config["slave_server_id"]);
+        } catch (\Exception $e) {
+            wing_debug($e->getMessage());
+            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
+        }
+    }
+
+    /**
+     * @return array|null
+     * @throws \Wing\Bin\NetCloseException
+     */
     public function getBinlogEvents()
     {
         $pack = Net::readPacket();
@@ -286,43 +319,58 @@ class Binlog
 
 
     /**
-    * 设置存储最后操作的binlog名称--游标，请勿删除mysql.last
-    *
-    * @param string $binlog
-    * @return bool
-    */
+     * 设置存储最后操作的binlog名称--游标，请勿删除mysql.last
+     * @param $binlog
+     * @return mixed
+     */
     public function setLastBinLog($binlog)
     {
         return $this->cache_handler->set("mysql.last", $binlog);
     }
+    /**
+     * 设置最后的读取位置--游标，请勿删除mysql.pos
+     * @param $start_pos
+     * @param $end_pos
+     * @return bool
+     */
+    public function setLastPosition($start_pos, $end_pos)
+    {
+        static $lastWriteTime = 0; //上次写入时间
+
+        $force = false;
+        if (self::$forceWriteLogPos) {
+            $force = self::$forceWriteLogPos;
+            self::$forceWriteLogPos = false;
+            $lastWriteTime = time();
+        }
+
+        if (false === $force) { //每隔10秒写一次
+            $time = time();
+            if (($lastWriteTime + 10) < $time) {
+                $lastWriteTime = $time;
+                $force = true;
+                wing_debug('----------------------------------------- wirte pos ' . $end_pos.'------------------------');
+            }
+        }
+        if ($force) {
+            $this->cache_handler->set("mysql.pos", [$start_pos, $end_pos]);
+        }
+
+        return $force;
+    }
 
     /**
-    * 获取最后操作的binlog文件名称
-    *
-    * @return string
-    */
+     * 获取最后操作的binlog文件名称
+     * @return mixed
+     */
     public function getLastBinLog()
     {
         return $this->cache_handler->get("mysql.last");
     }
-
     /**
-    * 设置最后的读取位置--游标，请勿删除mysql.pos
-    *
-    * @param int $start_pos
-    * @param int $end_pos
-    * @return bool
-    */
-    public function setLastPosition($start_pos, $end_pos)
-    {
-        return $this->cache_handler->set("mysql.pos", [$start_pos,$end_pos]);
-    }
-
-    /**
-    * 获取最后的读取位置
-    *
-    * @return array
-    */
+     * 获取最后的读取位置
+     * @return mixed
+     */
     public function getLastPosition()
     {
         return $this->cache_handler->get("mysql.pos");

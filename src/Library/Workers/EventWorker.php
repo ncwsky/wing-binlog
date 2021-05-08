@@ -219,11 +219,11 @@ class EventWorker extends BaseWorker
 
                     $run_count++;
                     //最后操作的binlog文件
-                    if (null == $last_binlog || $run_count % $is_run == 0) {
+                    if (null === $last_binlog || $run_count % $is_run == 0) {
                         $last_binlog = $bin->getLastBinLog();
                     }
 
-                    if (null == $current_binlog || $run_count % $is_run == 0) {
+                    if (null === $current_binlog || $run_count % $is_run == 0) {
                         //当前使用的binlog 文件
                         $current_binlog = $bin->getCurrentLogInfo()["File"];
                     }

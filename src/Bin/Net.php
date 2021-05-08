@@ -15,7 +15,7 @@ class Net
 	 * 发送数据
 	 *
 	 * @param string $data
-	 * @throws \RuntimeException
+	 * @throws NetCloseException
 	 * @return bool
 	 */
 	public static function send($data)
@@ -23,7 +23,7 @@ class Net
 	    $len = strlen($data);
 		if (($bytes = socket_write(self::$socket, $data, $len)) === false) {
 			$error_code = socket_last_error();
-			throw new \RuntimeException(sprintf( "Unable to write to socket: %s", socket_strerror($error_code)), $error_code);
+			throw new NetCloseException(sprintf( "Unable to write to socket: %s", socket_strerror($error_code)), $error_code);
 		}
 		return $bytes === $len;
 	}
@@ -31,6 +31,7 @@ class Net
     /**
      * 读取指定的字节数量的数据
      * @param $data_len
+     * @throws NetCloseException
      * @return string
      */
 	public static function readBytes($data_len)
@@ -42,7 +43,7 @@ class Net
 			$resp = socket_read(self::$socket, $data_len - $bytes_read);
 
 			if ($resp === false) {
-				throw new \RuntimeException(
+				throw new NetCloseException(
 					sprintf(
 						'remote host has closed. error:%s, msg:%s',
 						socket_last_error(),
@@ -52,7 +53,7 @@ class Net
 
 			// server kill connection or server gone away
 			if ($resp === '') {
-				throw new \RuntimeException("read less " . ($data_len - $bytes_read));
+				throw new NetCloseException("read less " . ($data_len - $bytes_read));
 			}
 
 			$body .= $resp;
@@ -65,6 +66,7 @@ class Net
     /**
      * 读取数据包主体内容
      * @return string
+     * @throws NetCloseException
      */
 	public static function readPacket()
 	{

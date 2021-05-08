@@ -35,8 +35,11 @@ class Db implements ISubscribe
         return $table.'-'.($shardId%10);
     }
     //以连锁id为分片依据
-    public function getShardId($mch_id){
+    public function getShardId(&$data){
         static $chainMap = [];
+
+        $mch_id = $this->currTable=='merchant' ? $data['id'] : $data['mch_id'];
+
         if(isset($chainMap[$mch_id])) return $chainMap[$mch_id];
 
         $chain_id = (int)$this->db->getCustomId('yx_tm.merchant', 'chain_id', 'id='.$mch_id);
@@ -49,32 +52,30 @@ class Db implements ISubscribe
 
 	public function onchange($result)
 	{
-	    //库检查
-        if(!isset($this->allowDbTable[$result['dbname']])){
-            return;
-        }
-        //切换库
-        if($this->useDbName!=$result['dbname']){
-            $dbName = isset($this->dbMap[$result['dbname']]) ? $this->dbMap[$result['dbname']] : $result['dbname'];
-            $this->db->execute('use '.$dbName);
-
-            $this->useDbName = $result['dbname'];
-        }
-        //表检测
-        $this->currTable = $table = $result['table']??'';
-        if(is_array($this->allowDbTable[$result['dbname']]) && !in_array($table, $this->allowDbTable[$result['dbname']])){
-            return;
-        }
-
-/*        if($result['event']=='query'){
-            \Log::write($result, 'query');
-            $this->db->execute($result['data']);
-            return;
-        }*/
-
         try{
+            //库检查
+            if(!isset($this->allowDbTable[$result['dbname']])){
+                return;
+            }
+            //切换库
+            if($this->useDbName!=$result['dbname']){
+                $dbName = isset($this->dbMap[$result['dbname']]) ? $this->dbMap[$result['dbname']] : $result['dbname'];
+                $this->db->execute('use '.$dbName);
 
-
+                $this->useDbName = $result['dbname'];
+            }
+            //表检测
+            $this->currTable = $table = $result['table']??'';
+            if(is_array($this->allowDbTable[$result['dbname']]) && !in_array($table, $this->allowDbTable[$result['dbname']])){
+                return;
+            }
+            /*
+            if($result['event']=='query'){
+                \Log::write($result, 'query');
+                $this->db->execute($result['data']);
+                return;
+            }
+            */
 
             switch ($result['event']){
                 case 'write_rows':
@@ -109,7 +110,7 @@ class Db implements ISubscribe
 	}
 
 	protected function _write($data){
-        $shardId = $this->getShardId($data['mch_id']);
+        $shardId = $this->getShardId($data);
         if($shardId==0) return;
 
         $table = $this->tableName($this->currTable, $shardId);
@@ -120,10 +121,10 @@ class Db implements ISubscribe
         }
     }
 	protected function _update($data, $old){
-        $shardId = $this->getShardId($data['mch_id']);
+        $shardId = $this->getShardId($data);
         if($shardId==0) return;
 
-        $oldTable = $this->tableName($this->currTable, $this->getShardId($old['mch_id']));
+        $oldTable = $this->tableName($this->currTable, $this->getShardId($old));
         $table = $this->tableName($this->currTable, $shardId);
         if($oldTable!=$table){ //分片表不一致 清除原分片旧数据
             $this->db->del($oldTable, ['id'=>$old['id']]);
@@ -137,7 +138,7 @@ class Db implements ISubscribe
         }
     }
 	protected function _delete($data){
-        $shardId = $this->getShardId($data['mch_id']);
+        $shardId = $this->getShardId($data);
         if($shardId==0) return;
 
         $table = $this->tableName($this->currTable, $shardId);

@@ -1,10 +1,10 @@
 <?php
 namespace Wing\Library\Workers;
 
+use Wing\Bin\NetCloseException;
 use \Wing\Library\Binlog;
 use Wing\Library\ISubscribe;
 use \Wing\Library\PDO;
-use \Wing\Bin\Auth\Auth;
 
 /**
  * BinlogWorker.php
@@ -28,7 +28,6 @@ class BinlogWorker extends BaseWorker
         $config = load_config("app");
 
         $this->binlog = new Binlog(new PDO);
-        $this->connect($config);
 
         if (isset($config["subscribe"]) && is_array($config["subscribe"])) {
             foreach ($config["subscribe"] as $class => $params) {
@@ -38,6 +37,10 @@ class BinlogWorker extends BaseWorker
             }
         }
     }
+
+    /**
+     * @param array $result
+     */
     protected function notice($result)
     {
         //通知订阅者
@@ -57,25 +60,6 @@ class BinlogWorker extends BaseWorker
                     $notify->onchange($result);
                 }
             }
-        }
-    }
-
-    protected function connect($config)
-    {
-        try {
-            //认证
-            Auth::execute(
-                $config["mysql"]["host"],
-                $config["mysql"]["user"],
-                $config["mysql"]["password"],
-                $config["mysql"]["db_name"],
-                $config["mysql"]["port"]
-            );
-
-            //注册为slave
-            $this->binlog->registerSlave($config["slave_server_id"]);
-        } catch (\Exception $e) {
-            var_dump($e->getMessage());
         }
     }
 
@@ -126,9 +110,9 @@ class BinlogWorker extends BaseWorker
                     //通知订阅者
                     $this->notice($result);
                 } while (0);
-            } catch (\RuntimeException $e) {
+            } catch (NetCloseException $e) {
                 usleep(500000);
-                $this->connect(load_config("app"));
+                $this->binlog->connect(load_config("app"));
                 wing_log('retry', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
             } catch (\Exception $e) {
                 wing_debug($e->getMessage());

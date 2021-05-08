@@ -590,5 +590,4 @@ class Mysql
 		(new Packet($res))->debugDump();
 		return true;
     }
-
 }

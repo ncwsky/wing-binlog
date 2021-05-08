@@ -3,6 +3,7 @@
 use Wing\Bin\Constant\Column;
 use Wing\Bin\Constant\EventType;
 use Wing\Bin\Constant\FieldType;
+use Wing\Library\Binlog;
 
 /**
  * Created by PhpStorm.
@@ -42,6 +43,12 @@ class BinlogPacket
      */
     protected $table_map = [];
 
+    /**
+     * table_map 缓存文件
+     * @var string
+     */
+    protected $table_map_file = '';
+
     public static $bitCountInByte = [
         0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
         1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
@@ -75,6 +82,12 @@ class BinlogPacket
     {
         if (!self::$instance) {
             self::$instance = new self();
+            $table_map_file = HOME.'/cache/binlog/table_map.json';
+            self::$instance->table_map_file = $table_map_file;
+            //读取table_map缓存
+            if(is_file($table_map_file)){
+                self::$instance->table_map = json_decode(file_get_contents($table_map_file), true);
+            }
         }
         return self::$instance->packParse($pack, $check_sum);
     }
@@ -118,38 +131,40 @@ class BinlogPacket
 
         switch ($event_type) {
             // 映射fileds相关信息
-            case EventType::TABLE_MAP_EVENT: {
-                    $this->tableMap();
-                }
+            case EventType::TABLE_MAP_EVENT:
+                $this->tableMap();
+
                 break;
             case EventType::UPDATE_ROWS_EVENT_V2:
-            case EventType::UPDATE_ROWS_EVENT_V1: {
-                    $data = $this->updateRow($event_type, $event_size_without_header);
-                    $data["time"] = date("Y-m-d H:i:s", $timestamp);
-                }
+            case EventType::UPDATE_ROWS_EVENT_V1:
+                $data = $this->updateRow($event_type, $event_size_without_header);
+                $data["time"] = date("Y-m-d H:i:s", $timestamp);
+
                 break;
             case EventType::WRITE_ROWS_EVENT_V1:
-            case EventType::WRITE_ROWS_EVENT_V2: {
-                    $data = $this->addRow($event_type, $event_size_without_header);
-                    $data["time"] = date("Y-m-d H:i:s", $timestamp);
-                }
+            case EventType::WRITE_ROWS_EVENT_V2:
+                $data = $this->addRow($event_type, $event_size_without_header);
+                $data["time"] = date("Y-m-d H:i:s", $timestamp);
+
                 break;
             case EventType::DELETE_ROWS_EVENT_V1:
-            case EventType::DELETE_ROWS_EVENT_V2: {
-                    $data =  $this->delRow($event_type, $event_size_without_header);
-                    $data["time"] = date("Y-m-d H:i:s", $timestamp);
-                }
+            case EventType::DELETE_ROWS_EVENT_V2:
+                $data =  $this->delRow($event_type, $event_size_without_header);
+                $data["time"] = date("Y-m-d H:i:s", $timestamp);
+
                 break;
-            case EventType::ROTATE_EVENT: {
-                    $log_pos = $this->readUint64();
-                    $file_name = $this->read($event_size_without_header - 8);
-                }
+            case EventType::ROTATE_EVENT:
+                $log_pos = $this->readUint64();
+                $file_name = $this->read($event_size_without_header - 8);
+
+                Binlog::$forceWriteLogPos = true; //更新日志点
+
                 break;
-            case EventType::HEARTBEAT_LOG_EVENT: {
-                    //心跳检测机制
-                    $binlog_name = $this->read($event_size_without_header);
-                    wing_debug('心跳事件 => ' . $binlog_name);
-                }
+            case EventType::HEARTBEAT_LOG_EVENT:
+                //心跳检测机制
+                $binlog_name = $this->read($event_size_without_header);
+                wing_debug('心跳事件 => ' . $binlog_name);
+
                 break;
             case EventType::XID_EVENT:
                 wing_debug('XID事件');
@@ -157,22 +172,17 @@ class BinlogPacket
 //                $data["time"] = date("Y-m-d H:i:s", $timestamp);
                 break;
             case EventType::QUERY_EVENT:
-                //修改表结构的事件为QUERY_EVENT
-
                 $_pack = strtolower($pack);
-                if (//strpos($_pack, "alter") !== false
-                    //&&
-                    $this->schema_name
-                    && $this->table_name
-                    && strpos($_pack, strtolower($this->schema_name) !== false)
-                    && strpos($_pack, strtolower($this->table_name) !== false)
-                ) {
-                    //清除数据表缓存
+                //可能是修改表结构sql 清除数据表缓存
+                if ($this->schema_name && $this->table_name && strpos($_pack, strtolower($this->schema_name)) !== false && strpos($_pack, strtolower($this->table_name)) !== false) {
                     $this->unsetTableMapCache($this->schema_name, $this->table_name);
                 }
 
                 $data =  $this->eventQuery($event_size_without_header);
                 $data["time"] = date("Y-m-d H:i:s", $timestamp);
+
+                wing_log('query', json_encode($data));
+                wing_debug("QUERY事件", $data, $_pack, $this->schema_name, $this->table_name);
                 break;
             default:
                 wing_debug("未知事件", $event_type, $pack);
@@ -187,7 +197,7 @@ class BinlogPacket
             $msg .= '-- next pos -> '.$log_pos;
             $msg .= ' --  typeEvent -> '.$event_type;
 
-            wing_log("slave_debug", $msg);
+            #wing_log("slave_debug", $msg);
         }
 
         end:
@@ -496,6 +506,7 @@ class BinlogPacket
     */
     protected function unsetTableMapCache($schema_name, $table_name)
     {
+        wing_debug('del_table_map:'.$table_name);
         unset($this->table_map[$schema_name][$table_name]);
     }
 
@@ -553,9 +564,11 @@ class BinlogPacket
             //}
             //self::$TABLE_MAP[self::$SCHEMA_NAME][self::$TABLE_NAME]['fields'][$i] =
             //BinLogColumns::parse($type, $colums[$i], $this);
-            $this->table_map[$this->schema_name][$this->table_name]['fields'][$i] =
-            $this->ColumnParse($type, $colums[$i]);
+            $this->table_map[$this->schema_name][$this->table_name]['fields'][$i] = $this->ColumnParse($type, $colums[$i]);
         }
+
+        //缓存
+        file_put_contents($this->table_map_file, json_encode($this->table_map), LOCK_EX | LOCK_NB);
 
         return [
             'schema_name'=> $this->schema_name,
