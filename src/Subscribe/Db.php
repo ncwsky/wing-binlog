@@ -60,8 +60,9 @@ class Db implements ISubscribe
             //切换库
             if($this->useDbName!=$result['dbname']){
                 $dbName = isset($this->dbMap[$result['dbname']]) ? $this->dbMap[$result['dbname']] : $result['dbname'];
-                $this->db->execute('use '.$dbName);
+                $this->db->db->config['name'] = $dbName; //防止重连时丢失选择库
 
+                $this->db->execute('use '.$dbName);
                 $this->useDbName = $result['dbname'];
             }
             //表检测
