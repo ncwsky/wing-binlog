@@ -177,12 +177,11 @@ class BinlogPacket
                 //可能是修改表结构sql 清除数据表缓存
                 if ($this->schema_name && $this->table_name && strpos($_pack, strtolower($this->schema_name)) !== false && strpos($_pack, strtolower($this->table_name)) !== false) {
                     $this->unsetTableMapCache($this->schema_name, $this->table_name);
+                    wing_log('query', json_encode($data));
                 }
 
                 $data =  $this->eventQuery($event_size_without_header);
                 $data["time"] = date("Y-m-d H:i:s", $timestamp);
-
-                wing_log('query', json_encode($data));
                 wing_debug("QUERY事件", $data, $_pack, $this->schema_name, $this->table_name);
                 break;
             default:
