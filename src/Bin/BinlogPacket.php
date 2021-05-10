@@ -157,13 +157,14 @@ class BinlogPacket
                 $log_pos = $this->readUint64();
                 $file_name = $this->read($event_size_without_header - 8);
 
+                wing_log('rotate', 'log_pos_offset:'.$log_pos. ', '.$file_name.' : '.$log_pos);
                 Binlog::$forceWriteLogPos = true; //更新日志点
 
                 break;
             case EventType::HEARTBEAT_LOG_EVENT:
                 //心跳检测机制
                 $binlog_name = $this->read($event_size_without_header);
-                wing_debug('心跳事件 => ' . $binlog_name);
+                wing_debug('心跳事件 => ' . $binlog_name.' : '.$log_pos);
 
                 break;
             case EventType::XID_EVENT:
