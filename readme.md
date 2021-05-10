@@ -1,5 +1,19 @@
 从 https://github.com/jilieryuyi/wing-binlog 克隆修改的版本
 
+复制账号需要以下权限：
+>Replication Salve  
+Replication Client  
+Select
+
+    REPLICATION CLIENT
+    REPLICATION SLAVE
+    复制相关。一般复制账号需要这两个权限。
+    
+    授予复制账号REPLICATION CLIENT权限，复制用户可以使用 SHOW MASTER STATUS, SHOW SLAVE STATUS和 SHOW BINARY LOGS来确定复制状态。
+    授予复制账号REPLICATION SLAVE权限，复制才能真正地工作
+    
+    授予Select权限，能通过information_schema.columns查询表的字段结构
+
 
 基于mysql数据库binlog的增量订阅&消费
 ====
