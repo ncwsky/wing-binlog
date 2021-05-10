@@ -105,7 +105,7 @@ class Db implements ISubscribe
             }
 
             //$result 缓存下来用于修复处理
-            error_log(json_encode($result)."\n", 3, $this->dataDir.'/fail_data');
+            error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/fail_data');
         }
 	}
 

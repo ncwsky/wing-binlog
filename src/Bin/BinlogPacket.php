@@ -554,7 +554,7 @@ class BinlogPacket
 
         $this->readCodedBinary();
         //fields 相应属性
-        $colums = Db::getFields($this->schema_name, $this->table_name);
+        $colums = Binlog::$db->getFields($this->schema_name, $this->table_name);
         $this->table_map[$this->schema_name][$this->table_name]['fields'] = [];
 
         for ($i = 0; $i < strlen($column_type_def); $i++) {

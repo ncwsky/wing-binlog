@@ -2,7 +2,6 @@
 
 use Wing\Bin\Auth\Auth;
 use Wing\Bin\BinlogPacket;
-use Wing\Bin\Mysql;
 use Wing\Bin\Net;
 use Wing\Bin\Packet;
 use Wing\Cache\File;
@@ -17,9 +16,9 @@ use Wing\Cache\File;
 class Binlog
 {
     /**
-    * @var PDO|IDb $db_handler
+    * @var PDO|IDb $db
     */
-    private $db_handler;
+    public static $db;
 
     /**
     * mysqlbinlog 命令路径
@@ -60,12 +59,12 @@ class Binlog
     /**
      * 构造函数
      *
-     * @param IDb $db_handler
+     * @param IDb $db
      */
-    public function __construct(IDb $db_handler)
+    public function __construct(IDb $db)
     {
         $config = load_config("app");
-        $this->db_handler  = $db_handler;
+        self::$db  = $db;
         $this->mysql_binlog = "mysqlbinlog";
         if (isset($config["mysqlbinlog"])) {
             $this->mysql_binlog = $config["mysqlbinlog"];
@@ -161,14 +160,13 @@ class Binlog
         $this->checksum = $this->isCheckSum();
         // checksum
         if ($this->checksum) {
-            Mysql::query("set @master_binlog_checksum=@@global.binlog_checksum");
+            Net::send(Packet::query("set @master_binlog_checksum=@@global.binlog_checksum"));
         }
-        //heart_period
-        $heart = 20;
-        if ($heart) {
-            Mysql::query("set @master_heartbeat_period=".($heart*1000000000));
-        }
+        //心跳   master_heartbeat_period is nanoseconds  heartbeat_period >= 0.001 &&  heartbeat_period <= 4294967
+        $heart = 30;
+        Net::send(Packet::query("set @master_heartbeat_period=".($heart*1000000000)));
 
+        //注册
         $data = Packet::registerSlave($slave_server_id);
 
         if (!Net::send($data)) {
@@ -194,7 +192,7 @@ class Binlog
 
     public function isCheckSum()
     {
-        $res = $this->db_handler->row("SHOW GLOBAL VARIABLES LIKE 'BINLOG_CHECKSUM'");
+        $res = self::$db->row("SHOW GLOBAL VARIABLES LIKE 'BINLOG_CHECKSUM'");
         return isset($res['Value']) && $res['Value'] !== 'NONE';
     }
 
@@ -207,14 +205,14 @@ class Binlog
     {
         $sql  = 'show binary logs';
 
-        return $this->db_handler->query($sql);
+        return self::$db->query($sql);
     }
 
     public function getFormat()
     {
         $sql  = 'select @@binlog_format';
 
-        $data = $this->db_handler->row($sql);
+        $data = self::$db->row($sql);
         return strtolower($data["@@binlog_format"]);
     }
 
@@ -234,7 +232,7 @@ class Binlog
     {
         $sql  = 'show master status';
 
-        $data = $this->db_handler->row($sql);
+        $data = self::$db->row($sql);
         return $data;
     }
 
@@ -248,7 +246,7 @@ class Binlog
         $logs  = $this->getLogs();
         $sql   = 'select @@log_bin_basename';
 
-        $data  = $this->db_handler->row($sql);
+        $data  = self::$db->row($sql);
         $path  = pathinfo($data["@@log_bin_basename"], PATHINFO_DIRNAME);
         $files = [];
 
@@ -281,7 +279,7 @@ class Binlog
 
         $sql  = 'select @@log_bin_basename';
 
-        $data = $this->db_handler->row($sql);
+        $data = self::$db->row($sql);
 
         if (!isset($data["@@log_bin_basename"])) {
             return null;
@@ -313,7 +311,7 @@ class Binlog
     {
         $sql  = 'select @@sql_log_bin';
 
-        $data = $this->db_handler->row($sql);
+        $data = self::$db->row($sql);
         return isset($data["@@sql_log_bin"]) && $data["@@sql_log_bin"] == 1;
     }
 
@@ -349,10 +347,11 @@ class Binlog
             if (($lastWriteTime + 10) < $time) {
                 $lastWriteTime = $time;
                 $force = true;
-                wing_debug('----------------------------------------- wirte pos ' . $end_pos.'------------------------');
             }
         }
-        if ($force) {
+        if ($force && $this->last_pos!=$end_pos) {
+            wing_debug('----------------------------------------- wirte pos ' . $end_pos.'------------------------');
+            $this->last_pos = $end_pos;
             $this->cache_handler->set("mysql.pos", [$start_pos, $end_pos]);
         }
 
@@ -390,7 +389,7 @@ class Binlog
         }
 
         $sql   = 'show binlog events in "' . $current_binlog . '" from ' . $last_end_pos.' limit '.$limit;
-        $datas = $this->db_handler->query($sql);
+        $datas = self::$db->query($sql);
 
         return $datas;
     }

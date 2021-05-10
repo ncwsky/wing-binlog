@@ -1,4 +1,5 @@
-<?php namespace Wing\Library;
+<?php
+namespace Wing\Library;
 
 /**
  * @author yuyi
@@ -25,13 +26,13 @@ class PDO implements IDb
      * @var bool
      */
     private $bconnected = false;
-    private $parameters;
-    private $host;
-    private $dbname;
+    private $host = '127.0.0.1';
+    private $dbname = '';
     private $password;
     private $user;
     private $lastSql = "";
     private $port = 3306;
+    private $char = 'utf8';
 
     /**
      * 构造函数
@@ -48,13 +49,13 @@ class PDO implements IDb
         }
 
         $config = $config["mysql"];
+        isset($config["host"]) && $this->host = $config["host"];
+        isset($config["db_name"]) && $this->dbname = $config["db_name"];
+        isset($config["port"]) && $this->port = $config["port"];
+        isset($config["char"]) && $this->char = $config["char"];
 
-        $this->parameters = array();
-        $this->dbname     = $config["db_name"];
-        $this->host       = $config["host"];
         $this->password   = $config["password"];
         $this->user       = $config["user"];
-        $this->port       = $config["port"];
 
         $this->connect();
     }
@@ -134,7 +135,7 @@ class PDO implements IDb
                 $dsn,
                 $this->user,
                 $this->password,
-                [\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"]
+                [\PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES '.$this->char]
             );
 
             $this->pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
@@ -142,6 +143,7 @@ class PDO implements IDb
 
             $this->bconnected = true;
         } catch (\PDOException $e) {
+            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             if (WING_DEBUG) {
                 var_dump("mysql连接异常:".__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
@@ -197,6 +199,7 @@ class PDO implements IDb
 
             return $this->statement->execute($parameters);
         } catch (\PDOException $e) {
+            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             $this->close();
             $this->connect();
 
@@ -204,7 +207,6 @@ class PDO implements IDb
                 var_dump(__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
         }
-        $this->parameters = array();
         return false;
     }
 
@@ -250,6 +252,7 @@ class PDO implements IDb
                 return $this->statement->rowCount();
             }
         } catch (\PDOException $e) {
+            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             if (WING_DEBUG) {
                 var_dump(__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
@@ -280,6 +283,7 @@ class PDO implements IDb
                 return $result;
             }
         } catch (\PDOException $e) {
+            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             if (WING_DEBUG) {
                 var_dump(__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
@@ -288,6 +292,12 @@ class PDO implements IDb
             $this->connect();
         }
         return [];
+    }
+
+    public function getFields($schema, $table)
+    {
+        $sql = "SELECT COLUMN_NAME,COLLATION_NAME,CHARACTER_SET_NAME,COLUMN_COMMENT,COLUMN_TYPE,COLUMN_KEY FROM information_schema.columns WHERE table_schema = '{$schema}' AND table_name = '{$table}'";
+        return $this->query($sql);
     }
 
     /**
