@@ -368,16 +368,16 @@ class Worker
                 $content = ob_get_contents();
                 ob_end_clean();
 
-                if (WING_DEBUG && $content) {
+                if ($content) {
+                    wing_log('exception', 'worker-start:'.$content);
                     wing_debug($content);
                 }
             } catch (\Exception $e) {
-                if (WING_DEBUG) {
-                    var_dump($e->getMessage());
-                }
+                wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
             }
             sleep(1);
         }
+        wing_log('exception', 'worker-start:master服务异常退出');
         wing_debug("master服务异常退出");
     }
 }

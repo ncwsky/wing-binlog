@@ -3,6 +3,8 @@
 //declare(ticks = 1);
 
 // Only for cli.
+use Wing\Library\Worker;
+
 if (PHP_SAPI !== 'cli') {
     exit("Only run in command line mode \n");
 }
@@ -38,51 +40,62 @@ if (!file_exists(__DIR__."/composer.json")) {
 if (!file_exists(__DIR__.'/vendor/autoload.php')) {
     echo "正在尝试安装依赖-composer install", PHP_EOL;
     exec("composer install");
-//    echo PHP_EOL, "请重新执行：", WING_COMMAND_LINE, PHP_EOL;
-//    exit;
 }
 
 require __DIR__.'/vendor/autoload.php';
 
-use Symfony\Component\Console\Application;
-
-//初始化开发模式 $argv — 传递给脚本的参数数组
-$debug = false;
-foreach ($argv as $item) {
-    if (strpos($item, "debug") !== false) {
-		$debug = true;
-    }
-
-    if (strpos($item, "restart") !== false) {
-        $winfo  = \Wing\Library\Worker::getWorkerProcessInfo();
-        $debug  = $winfo["debug"];
-    }
+$action = isset($argv[1]) ? $argv[1] : '';
+$debug = array_search('--debug', $argv) ? true : false;
+$daemon = array_search('-d', $argv) ? true : false;
+$workers = 1;
+$n_key = array_search('-n', $argv);
+if($n_key && isset($argv[$n_key+1]) && is_numeric($argv[$n_key+1])){
+    $workers = (int)$argv[$n_key+1];
 }
+
 define("WING_DEBUG", $debug);
-
 if (WING_DEBUG) {
-	ini_set("display_errors", "On");
-	error_reporting(E_ALL);
+    ini_set("display_errors", "On");
+    error_reporting(E_ALL);
 }
 
-try {
-    $application = new Application("wing-binlog");
-    $application->setCatchExceptions(true); //在命令执行期间开启异常捕获
 
-    $commands = [
-        \Wing\Command\ServerStart::class,
-        \Wing\Command\ServerStop::class,
-        \Wing\Command\ServerVersion::class,
-        \Wing\Command\ServerStatus::class,
-        \Wing\Command\Help::class,
-        \Wing\Command\ServerRestart::class
-    ];
-    foreach ($commands as $command) {
-        $application->add(new $command);
+if(!in_array($action, ['start','restart','stop','status'])){
+    $action = '';
+}
+$runLock = __DIR__ . '/runLock'; //防重复运行
+if($action=='start'){
+    if(is_file($runLock) && file_get_contents($runLock)==1){
+        echo 'wing is running!',PHP_EOL;
+        exit(0);
     }
-
-    $application->run();
-} catch (\Exception $e) {
-    echo sprintf('line:%s, file:%s, err:%s', $e->getLine(), $e->getFile(), $e->getMessage()),PHP_EOL;
-    wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
 }
+elseif($action=='restart'){
+    Worker::stopAll();
+
+    $worker_info = Worker::getWorkerProcessInfo();
+    $daemon      = $worker_info["daemon"];
+    $debug       = $worker_info["debug"];
+    $workers     = $worker_info["workers"];
+}elseif($action=='stop'){
+    file_put_contents($runLock, 0);
+    Worker::stopAll();
+    exit(0);
+}elseif($action=='status'){
+    Worker::showStatus();
+    sleep(1);
+    echo file_get_contents(HOME."/logs/status.log");
+    exit(0);
+}else{
+    echo "执行 php wing start 开启服务进程，可选参数 --d 以守护进程执行， --debug 启用debug模式， --n 指定进程数量".PHP_EOL;
+    echo "如： php wing start --d --debug --n 8".PHP_EOL;
+    exit(0);
+}
+
+file_put_contents($runLock, 1);
+$worker = new Worker([
+    "daemon"  => !!$daemon,
+    "debug"   => !!$debug,
+    "workers" => $workers
+]);
+$worker->start();
