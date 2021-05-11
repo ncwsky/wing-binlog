@@ -88,6 +88,8 @@ class Worker
     public static function getWorkerProcessInfo()
     {
         self::$pid = HOME."/wing.pid";
+        if(!is_file(self::$pid)) return [];
+
         $data = file_get_contents(self::$pid);
         list($pid, $daemon, $debug, $workers) = json_decode($data, true);
 
@@ -272,8 +274,12 @@ class Worker
     public static function stopAll()
     {
         $winfo     = self::getWorkerProcessInfo();
-        $server_id = $winfo["process_id"];
-        posix_kill($server_id, SIGINT);
+        if($winfo){
+            $server_id = $winfo["process_id"];
+            posix_kill($server_id, SIGINT);
+        }else{
+            echo 'worker is not running',PHP_EOL;
+        }
     }
 
     /**

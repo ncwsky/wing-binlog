@@ -74,9 +74,9 @@ elseif($action=='restart'){
     Worker::stopAll();
 
     $worker_info = Worker::getWorkerProcessInfo();
-    $daemon      = $worker_info["daemon"];
-    $debug       = $worker_info["debug"];
-    $workers     = $worker_info["workers"];
+    isset($worker_info["daemon"]) && $daemon = $worker_info["daemon"];
+    isset($worker_info["debug"]) && $debug = $worker_info["debug"];
+    isset($worker_info["workers"]) && $workers = $worker_info["workers"];
 }elseif($action=='stop'){
     file_put_contents($runLock, 0);
     Worker::stopAll();
