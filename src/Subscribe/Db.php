@@ -105,8 +105,12 @@ class Db implements ISubscribe
                 }
             }
 
-            //$result 缓存下来用于修复处理
-            error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/fail_data');
+            if(strpos($e->getMessage(), 'Duplicate entry')){
+                error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/repeat_data');
+            }else{
+                //$result 缓存下来用于修复处理
+                error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/fail_data');
+            }
         }
 	}
 
