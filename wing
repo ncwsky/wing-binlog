@@ -87,8 +87,8 @@ elseif($action=='restart'){
     echo file_get_contents(HOME."/logs/status.log");
     exit(0);
 }else{
-    echo "执行 php wing start 开启服务进程，可选参数 --d 以守护进程执行， --debug 启用debug模式， --n 指定进程数量".PHP_EOL;
-    echo "如： php wing start --d --debug --n 8".PHP_EOL;
+    echo "执行 php wing start 开启服务进程，可选参数 -d 以守护进程执行， --debug 启用debug模式， -n 指定进程数量".PHP_EOL;
+    echo "如： php wing start -d --debug -n 8".PHP_EOL;
     exit(0);
 }
 

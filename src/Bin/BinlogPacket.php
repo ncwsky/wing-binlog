@@ -173,18 +173,16 @@ class BinlogPacket
 //                $data["time"] = date("Y-m-d H:i:s", $timestamp);
                 break;
             case EventType::QUERY_EVENT:
-                $_pack = strtolower($pack);
                 $data =  $this->eventQuery($event_size_without_header);
                 $data["time"] = date("Y-m-d H:i:s", $timestamp);
 
                 //可能是修改表结构sql 清除数据表缓存
-                if ($this->schema_name && $this->table_name && strpos($_pack, strtolower($this->schema_name)) !== false && strpos($_pack, strtolower($this->table_name)) !== false) {
+                if ($this->schema_name && $this->table_name && $this->schema_name==$data['dbname'] && strpos(strtolower($data['data']), strtolower($this->table_name)) !== false) {
                     $this->unsetTableMapCache($this->schema_name, $this->table_name);
 
-                    wing_log('query', json_encode($data));
-                    wing_debug("write query");
+                    wing_log('query', $data, '['.$this->schema_name.']', '['.$this->table_name.']');
                 }
-                wing_debug("QUERY事件", $data, $_pack);
+                wing_debug("QUERY事件", $data, $pack);
                 break;
             default:
                 wing_debug("未知事件", $event_type, $pack);
