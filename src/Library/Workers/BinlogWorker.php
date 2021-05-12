@@ -105,11 +105,10 @@ class BinlogWorker extends BaseWorker
                     if (!$result) {
                         break;
                     }
-
-                    $times += (is_array($result["data"]) ? count($result["data"]) : 1);
-
-                    wing_debug($times. '次');
-
+                    if(WING_DEBUG){
+                        $times += (is_array($result["data"]) ? count($result["data"]) : 1);
+                        wing_debug($times. '次');
+                    }
                     //通知订阅者
                     $this->notice($result);
                 } while (0);
