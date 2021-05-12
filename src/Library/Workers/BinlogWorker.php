@@ -22,6 +22,7 @@ class BinlogWorker extends BaseWorker
      * @var \Wing\Library\Binlog
      */
     private $binlog;
+    private $is_notice = false;
 
     public function __construct($daemon, $workers)
     {
@@ -34,33 +35,35 @@ class BinlogWorker extends BaseWorker
                 $params["daemon"]  = $daemon;
                 $params["workers"] = $workers;
                 $this->notify[] = new $class($params);
+                $this->is_notice = true;
             }
         }
     }
 
     /**
+     * 通知订阅者
      * @param array $result
      */
     protected function notice($result)
     {
-        //通知订阅者
-        if (is_array($this->notify) && count($this->notify) > 0) {
-            $data = $result["data"];
-            if($result['event']=='xid') return; //xid事件
-            if(!is_array($data)) { //query事件
-                if($data=='BEGIN') return;
-                $data = [$data];
-            }
-            foreach ($data as $row) {
-                $result["data"] = $row;
-                foreach ($this->notify as $notify) {
-                    /**
-                     * @var ISubscribe $notify
-                     */
-                    $notify->onchange($result);
-                }
+        if(false===$this->is_notice) return;
+
+        $data = $result["data"];
+        if($result['event']=='xid') return; //xid事件
+        if(!is_array($data)) { //query事件
+            if($data=='BEGIN') return;
+            $data = [$data];
+        }
+        foreach ($data as $row) {
+            $result["data"] = $row;
+            foreach ($this->notify as $notify) {
+                /**
+                 * @var ISubscribe $notify
+                 */
+                $notify->onchange($result);
             }
         }
+
     }
 
     public function start()

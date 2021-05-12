@@ -54,6 +54,9 @@ class Db implements ISubscribe
 	public function onchange($result)
 	{
         try{
+            if($result['event']=='query'){
+                return;
+            }
             //库检查
             if(!isset($this->allowDbTable[$result['dbname']])){
                 return;
