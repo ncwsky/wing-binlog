@@ -306,8 +306,9 @@ if (!function_exists("wing_log")) {
             //发送通知
             $appConfig = load_config("app");
             if (!empty($appConfig['warn_notice_url'])) {
+                $msg = is_scalar($msg) ? $msg : json_encode($msg, JSON_UNESCAPED_UNICODE);
                 $ret = curlSend($appConfig['warn_notice_url'], 'POST', ['title' => $level, 'msg' => $msg]);
-                file_put_contents(HOME . "/logs/warn_notice.log", date("Y-m-d H:i:s").'['.$level.'] ' . $ret ."\r\n", FILE_APPEND);
+                file_put_contents(HOME . "/logs/warn_notice.log", date("Y-m-d H:i:s") . '[' . $level . '] msg:' . $msg . ' => ' . $ret . "\r\n", FILE_APPEND);
             }
         }
     }
