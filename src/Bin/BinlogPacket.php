@@ -74,7 +74,7 @@ class BinlogPacket
     * 此api为唯一入口，对外必须以静态单例调用
     * 因为有些属性前面初始化后，后面可能继续使用的
     *
-    * @param string $pack 数据包，次参数来源于Net::readPacket
+    * @param string $pack 数据包，次参数来源于Packet::readPacket
     * @param bool $check_sum
     * @return array|mixed
     */
@@ -95,7 +95,7 @@ class BinlogPacket
     /**
     * 内部入口
     *
-    * @param string $pack binlog事件数据包，次参数来源于Net::readPacket
+    * @param string $pack binlog事件数据包，次参数来源于Packet::readPacket
     * @param bool $check_sum
     * @return array|mixed
     */
@@ -453,10 +453,7 @@ class BinlogPacket
      */
     public function hasNext($size)
     {
-        if ($this->offset  < $size) { #-20
-            return true;
-        }
-        return false;
+        return $this->offset - 20 < $size;
     }
 
     public function unread($data)

@@ -1,7 +1,7 @@
 <?php
 namespace Wing\Library\Workers;
 
-use Wing\Bin\NetCloseException;
+use Wing\Bin\NetException;
 use \Wing\Library\Binlog;
 use Wing\Library\ISubscribe;
 use \Wing\Library\PDO;
@@ -112,7 +112,7 @@ class BinlogWorker extends BaseWorker
                     //通知订阅者
                     $this->notice($result);
                 } while (0);
-            } catch (NetCloseException $e) {
+            } catch (NetException $e) {
                 usleep(500000);
                 $this->binlog->connect(load_config("app"));
                 wing_log('retry', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());

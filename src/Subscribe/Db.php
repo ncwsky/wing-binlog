@@ -150,14 +150,21 @@ class Db implements ISubscribe
         $shardId = $this->getShardId($data);
         if($shardId==0) return;
 
+        if($this->currTable=='merchant'){
+            $this->db->del($this->currTable, ['id'=>$data['id']]);
+            return;
+        }
+
         $table = $this->tableName($this->currTable, $shardId);
 
+        $day30 = strtotime('-1 month');
         // order 未支付的支持删除
-        if($this->currTable=='order' && $data['pay_time']==0){
+        if($this->currTable=='order' && $data['pay_time']==0 && $day30>$data['ctime']){
             $this->db->del($table, ['id'=>$data['id']]);
+            return;
         }
         // mch_order 未支付的支持删除 #mch_order与mch_ordermx做关联删除处理
-        if($this->currTable=='mch_order' && $data['pay_time']==0){
+        if($this->currTable=='mch_order' && $data['pay_time']==0 && $day30>$data['ctime']){
             $this->db->del($table, ['id'=>$data['id']]);
 
             $this->db->del($this->tableName('mch_ordermx', $shardId), ['mch_id'=>$data['mch_id'],'o_id'=>$data['_id']]);

@@ -302,12 +302,12 @@ if (!function_exists("wing_log")) {
         $log .= "\r\n";
         file_put_contents(HOME."/logs/".$level.".log", $log, FILE_APPEND);
 
-        if($level=='exception' || $level=='retry' || $level=='error' || strpos($msg,'退出')!==false){
+        if($level=='exception' || $level=='retry' || $level=='error' || strpos($log,'退出')!==false){
             //发送通知
             $appConfig = load_config("app");
             if (!empty($appConfig['warn_notice_url'])) {
                 $ret = curlSend($appConfig['warn_notice_url'], 'POST', ['title' => $level, 'msg' => $msg]);
-                file_put_contents(HOME . "/logs/" . $level . ".log", 'warn_notice:' . $ret, FILE_APPEND);
+                file_put_contents(HOME . "/logs/warn_notice.log", date("Y-m-d H:i:s").'['.$level.'] ' . $ret ."\r\n", FILE_APPEND);
             }
         }
     }

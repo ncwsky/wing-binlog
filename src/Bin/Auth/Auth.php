@@ -70,7 +70,7 @@ class Auth
 		// 4、发送协议包，认证完成
 
 		// 获取server信息 加密salt
-		$pack   	 = Net::readPacket();
+		$pack   	 = Packet::readPacket();
 		$server_info = ServerInfo::parse($pack);
 
         //希望的服务器权能信息
@@ -109,9 +109,7 @@ class Auth
 			return null;
 		}
 
-		$result = Net::readPacket();
-		// 认证是否成功
-		Packet::success($result);
+		Packet::readPacket(true); #// 认证是否成功 Packet::success(Packet::readPacket());
 		return $server_info;
 	}
 

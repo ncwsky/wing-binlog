@@ -227,22 +227,58 @@ class Packet
      */
     public static function success($pack)
     {
-    	if (!$pack) {
-			return;
-    		//throw new \Exception("mysql has gone away");
-		}
-
-        if (ord($pack[0]) == self::OK_PACK_HEAD) {
+        $head = ord($pack[0]);
+    	// http://dev.mysql.com/doc/internals/en/auth-phase-fast-path.html 00 FE
+        if ($head == self::OK_PACK_HEAD || $head == self::EOF_HEAD) {
             return;
         }
 
         $error_code = unpack("v", $pack[1] . $pack[2])[1];
         $error_msg  = '';
-
         for ($i = 9; $i < strlen($pack); $i ++) {
             $error_msg .= $pack[$i];
         }
         throw new \Exception($error_msg, $error_code);
+    }
+    /**
+     * 读取数据包主体内容
+     * @param bool $checkSuccess
+     * @return string
+     * @throws NetException
+     */
+    public static function readPacket($checkSuccess = false)
+    {
+        //消息头 包数据长度<3>+包序列id<1>
+        $header = Net::readBytes(4);
+        if ('' === $header) {
+            return '';
+        }
+        //消息体长度3bytes 小端序
+        $dataLength = unpack("V",$header[0].$header[1].$header[2].chr(0))[1];
+        //包序列id
+        //$sequence_id =  unpack("C",$header[3])[1];
+        $result = Net::readBytes($dataLength);
+        if (true === $checkSuccess) {
+            self::success($result);
+        }
+
+        //超出16M大小的数据包 https://dev.mysql.com/doc/internals/en/sending-more-than-16mbyte.html
+        #0xffffff
+        while ($dataLength==16777215) {
+            //消息头 包数据长度<3>+包序列id<1>
+            $header = Net::readBytes(4);
+            if ('' === $header) {
+                return $result;
+            }
+            //消息体长度3bytes 小端序
+            $dataLength = unpack("V",$header[0].$header[1].$header[2].chr(0))[1];
+            //包序列id
+            //$sequence_id =  unpack("C",$header[3])[1];
+
+            $result .= Net::readBytes($dataLength);
+        }
+
+        return $result;
     }
 
     /**

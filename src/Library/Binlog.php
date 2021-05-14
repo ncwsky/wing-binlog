@@ -124,13 +124,11 @@ class Binlog
 
     /**
      * @return array|null
-     * @throws \Wing\Bin\NetCloseException
+     * @throws \Wing\Bin\NetException
      */
     public function getBinlogEvents()
     {
-        $pack = Net::readPacket();
-        // 校验数据包格式
-        Packet::success($pack);
+        $pack = Packet::readPacket(true); // 校验数据包格式 Packet::success($pack);
         $res = BinlogPacket::parse($pack, $this->checksum);
 
         if (!$res) {
@@ -154,6 +152,7 @@ class Binlog
      * 注册成为从库（binlog协议支持）
      * @param int $slave_server_id
      * @return bool
+     * @throws \Wing\Bin\NetException
      */
     public function registerSlave($slave_server_id)
     {
@@ -173,8 +172,7 @@ class Binlog
             return false;
         }
 
-        $result = Net::readPacket();
-        Packet::success($result);
+        Packet::readPacket(true); #Packet::success(Packet::readPacket());
 
         //封包
         $data = Packet::binlogDump($this->binlog_file, $this->last_pos, $slave_server_id);
@@ -184,8 +182,8 @@ class Binlog
         }
 
         //认证
-        $result = Net::readPacket();
-        Packet::success($result);
+        Packet::readPacket(true); #Packet::success(Packet::readPacket());
+
         return true;
     }
 

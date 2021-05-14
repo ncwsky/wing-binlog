@@ -30,7 +30,7 @@ class Mysql
 		$packet = Packet::query($sql);
 		Net::send($packet);
 
-		$res   = Net::readPacket();
+		$res   = Packet::readPacket();
 		$fbyte = ord($res[0]);
 
 		//这里可能是三种类型的报文 Result set、Field和Row Data
@@ -73,7 +73,7 @@ class Mysql
 		    $columns = [];
             //一直读取直到遇到结束报文
             while (1) {
-                $res = Net::readPacket();
+                $res = Packet::readPacket();
 
 				if (ord($res[0]) == Packet::EOF_HEAD) {
 				    break;
@@ -103,7 +103,7 @@ class Mysql
             $rows = [];
             //一直读取直到遇到结束报文
             while (1) {
-                $res = Net::readPacket();
+                $res = Packet::readPacket();
                 if (ord($res[0]) == Packet::EOF_HEAD) {
                     break;
                 }
@@ -209,7 +209,7 @@ class Mysql
         	echo "write command COM_STMT_PREPARE failure\r\n";
         	return false;
 		}
-        $res = Net::readPacket();
+        $res = Packet::readPacket();
 
         /**PREPARE_OK 结构
         1	OK报文，值为0x00
@@ -250,14 +250,14 @@ class Mysql
         if ($params_len > 0) {
             $params_res = [];
             for ($i = 0; $i < $params_len; $i++) {
-                $res = Net::readPacket();
+                $res = Packet::readPacket();
                 $packet = new Packet($res);
                 //$packet->debugDump();
                 $params_res[] = $packet->getColumns();
                 unset($packet);
             }
             //EOF
-            $res = Net::readPacket();
+            $res = Packet::readPacket();
             //(new Packet($res))->debugDump();
             //var_dump($params_res);
         }
@@ -271,7 +271,7 @@ class Mysql
             //一直读取直到遇到结束报文
             while ($cc < $columns_count) {
                 $cc++;
-                $res = Net::readPacket();
+                $res = Packet::readPacket();
                 $packet = new Packet($res);
                 //$packet->debugDump();
                 //echo "\r\n";
@@ -281,7 +281,7 @@ class Mysql
             }
             //var_dump($columns);
             //EOF
-            $res = Net::readPacket();
+            $res = Packet::readPacket();
            // (new Packet($res))->debugDump();
             //COM_STMT_PREPARE --- end ---
         }
@@ -387,7 +387,7 @@ class Mysql
 		}
 
         //列数量
-        $res = Net::readPacket();
+        $res = Packet::readPacket();
         $packet = new  Packet($res);
 		$packet->debugDump();
 
@@ -401,7 +401,7 @@ class Mysql
         //一直读取直到遇到结束报文
         while ($cc < $columns_count) {
             $cc++;
-            $res        = Net::readPacket();
+            $res        = Packet::readPacket();
             $packet     = new Packet($res);
             $columns[]  = $packet->getColumns();
             unset($packet);
@@ -409,7 +409,7 @@ class Mysql
         //var_dump($columns);
 
         //EOF
-        $res = Net::readPacket();
+        $res = Packet::readPacket();
         $packet = new Packet($res);
         $packet->debugDump();
 
@@ -432,7 +432,7 @@ class Mysql
         //一直读取直到遇到结束报文
         while (1)
         {
-            $res = Net::readPacket();
+            $res = Packet::readPacket();
             //var_dump($res);
             if (ord($res[0]) == Packet::EOF_HEAD) {
                 break;
@@ -557,7 +557,7 @@ class Mysql
 			return false;
 		}
 
-		$res = Net::readPacket();
+		$res = Packet::readPacket();
 		(new Packet($res))->debugDump();
 
 		//}
@@ -586,7 +586,7 @@ class Mysql
 			return false;
 		}
 
-		$res = Net::readPacket();
+		$res = Packet::readPacket();
 		(new Packet($res))->debugDump();
 		return true;
     }
