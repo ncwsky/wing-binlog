@@ -148,11 +148,30 @@ class PDO implements IDb
                 var_dump("mysql连接异常:".__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
 
-            sleep(1);
+            sleep(5);
             $this->connect();
         }
     }
+    private function getConnection()
+    {
+        $this->init('SELECT 1');
+/*        if (false === $this->ping()) {
+            $this->close();
+            $this->connect();
+        }*/
 
+        return $this;
+    }
+
+    public function ping()
+    {
+        try {
+            $this->init('SELECT 1');
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
 
     /**
      * @关闭链接
@@ -210,7 +229,9 @@ class PDO implements IDb
         return false;
     }
 
-
+    public function query($query, $params = null, $fetchmode = \PDO::FETCH_ASSOC){
+        return $this->getConnection()->_query($query, $params, $fetchmode);
+    }
     /**
      * 执行SQL语句
      *
@@ -219,7 +240,7 @@ class PDO implements IDb
      * @param  int    $fetchmode
      * @return mixed
      */
-    public function query($query, $params = null, $fetchmode = \PDO::FETCH_ASSOC)
+    private  function _query($query, $params = null, $fetchmode = \PDO::FETCH_ASSOC)
     {
         $query    = preg_replace("/\s+|\t+|\n+/", " ", $query);
         $init_res = $this->init($query, $params);
@@ -264,6 +285,9 @@ class PDO implements IDb
         return $init_res;
     }
 
+    public function row($query, $params = null, $fetchmode = \PDO::FETCH_ASSOC){
+        return $this->getConnection()->_row($query, $params, $fetchmode);
+    }
     /**
      * 查询返回行
      *
@@ -272,7 +296,7 @@ class PDO implements IDb
      * @param  int    $fetchmode
      * @return array
      */
-    public function row($query, $params = null, $fetchmode = \PDO::FETCH_ASSOC)
+    public function _row($query, $params = null, $fetchmode = \PDO::FETCH_ASSOC)
     {
         try {
             $this->init($query, $params);
