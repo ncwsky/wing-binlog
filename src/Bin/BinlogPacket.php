@@ -82,7 +82,7 @@ class BinlogPacket
     {
         if (!self::$instance) {
             self::$instance = new self();
-            $table_map_file = HOME.'/cache/binlog/table_map.json';
+            $table_map_file = HOME.'/cache/table_map.json';
             self::$instance->table_map_file = $table_map_file;
             //读取table_map缓存
             if(is_file($table_map_file)){

@@ -77,7 +77,7 @@ class Binlog
             wing_debug("仅支持row格式");
             exit;
         }
-        $this->cache_handler = new File(HOME."/cache/binlog");
+        $this->cache_handler = new File(HOME."/cache");
         //初始化，最后操作的binlog文件
         $this->binlog_file = $this->getLastBinLog();
         list(, $this->last_pos) = $this->getLastPosition();
@@ -85,19 +85,21 @@ class Binlog
             //当前使用的binlog 文件
             $info = $this->getCurrentLogInfo();
             $this->binlog_file = $info["File"];
-            $this->last_pos = $info["Position"];
 
             self::$forceWriteLogPos = true;
             //缓存初始复制点
             $this->setLastBinLog($this->binlog_file);
-            $this->setLastPosition(0, $this->last_pos);
+            $this->setLastPosition(0, $info["Position"]);
+            $this->last_pos = $info["Position"];
         }
-        echo sprintf(
+        $start_msg = sprintf(
             "%-12s%-21s%s\r\n",
             $this->binlog_file,
             $this->last_pos,
             "超始复制点"
         );
+        echo $start_msg;
+        wing_log('rotate', $start_msg);
         $this->connect($config);
     }
 

@@ -26,8 +26,8 @@ class Db implements ISubscribe
         $this->allowDbTable = $config['allow_db_table']??[];
         $this->dbMap = $config['db_map']??[];
         $this->useDbName = '';
-        $this->dataDir = HOME."/cache/binlog";
-        $this->cache = new File(HOME."/cache/binlog");
+        $this->dataDir = HOME."/cache";
+        $this->cache = new File(HOME."/cache");
 	}
 	public function tableName($table, $shardId){
 	    if($table=='merchant') return $table;
