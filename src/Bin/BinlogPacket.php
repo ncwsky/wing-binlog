@@ -554,7 +554,7 @@ class BinlogPacket
         $colums = Binlog::$db->getFields($this->schema_name, $this->table_name);
         $this->table_map[$this->schema_name][$this->table_name]['fields'] = [];
 
-        wing_log('getFields', $column_type_def, $colums);
+        wing_log('getFields', $this->schema_name, $this->table_name, $column_type_def, $colums);
 
         for ($i = 0; $i < strlen($column_type_def); $i++) {
             $type = ord($column_type_def[$i]);
