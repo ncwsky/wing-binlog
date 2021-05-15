@@ -94,24 +94,27 @@ class Db implements ISubscribe
                     break;
             }
         }catch (\Exception $e){
-            \Log::write($this->currTable, 'table');
-            \Log::write($result['data'], 'data');
-            \Log::Exception($e, false);
+            $hasRepeat = $result['event']=='write_rows' && strpos($e->getMessage(), 'Duplicate entry');
 
-            //发送通知
-            $appConfig = load_config("app");
-            if (!empty($appConfig['warn_notice_url'])) {
-                if(!$this->cache->get('warn-notice')){ #x分钟内只发一次
-                    $this->cache->set('warn-notice', date("Y-m-d H:i:s"), 30*60);
-
-                    $ret = \Http::doPost($appConfig['warn_notice_url'], ['title' => 'binglog错误预警', 'msg' => $e->getMessage()]);
-                    \Log::write($ret, 'curl');
-                }
-            }
-
-            if(strpos($e->getMessage(), 'Duplicate entry')){
+            if($hasRepeat){
+                \Log::write($this->db->getSql(), 'Duplicate');
                 error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/repeat_data');
             }else{
+                \Log::write($this->currTable, 'table');
+                \Log::write($result['data'], 'data');
+                \Log::Exception($e, false);
+
+                //发送通知
+                $appConfig = load_config("app");
+                if (!empty($appConfig['warn_notice_url'])) {
+                    if(!$this->cache->get('warn-notice')){ #x分钟内只发一次
+                        $this->cache->set('warn-notice', date("Y-m-d H:i:s"), 30*60);
+
+                        $ret = \Http::doPost($appConfig['warn_notice_url'], ['title' => 'binglog错误预警', 'msg' => $e->getMessage()]);
+                        \Log::write($ret, 'curl');
+                    }
+                }
+
                 //$result 缓存下来用于修复处理
                 error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/fail_data');
             }
