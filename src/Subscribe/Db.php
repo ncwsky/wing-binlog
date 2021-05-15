@@ -97,8 +97,8 @@ class Db implements ISubscribe
             $hasRepeat = $result['event']=='write_rows' && strpos($e->getMessage(), 'Duplicate entry');
 
             if($hasRepeat){
-                \Log::write($this->db->getSql(), 'Duplicate');
-                error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/repeat_data');
+                #\Log::write($this->db->getSql(), 'Duplicate');
+                #error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/repeat_data');
             }else{
                 \Log::write($this->currTable, 'table');
                 \Log::write($result['data'], 'data');
