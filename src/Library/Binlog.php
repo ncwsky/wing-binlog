@@ -334,7 +334,7 @@ class Binlog
     public function setLastPosition($start_pos, $end_pos)
     {
         static $lastWriteTime = 0; //上次写入时间
-
+        $this->last_pos = $end_pos;
         $force = false;
         if (self::$forceWriteLogPos) {
             $force = self::$forceWriteLogPos;
@@ -349,9 +349,9 @@ class Binlog
                 $force = true;
             }
         }
-        if ($force && $this->last_pos!=$end_pos) {
+
+        if ($force) {
             wing_debug('----------------------------------------- wirte pos ' . $end_pos.'------------------------');
-            $this->last_pos = $end_pos;
             $this->cache_handler->set("mysql.pos", [$start_pos, $end_pos]);
         }
 
