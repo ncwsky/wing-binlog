@@ -95,43 +95,26 @@ class BinlogWorker extends BaseWorker
 
         $times = 0;
         while (1) {
-            ob_start();
-
             try {
                 pcntl_signal_dispatch();
-                do {
-                    $result = $this->binlog->getBinlogEvents();
 
-                    if (!$result) {
-                        break;
-                    }
+                if($result = $this->binlog->getBinlogEvents()){
                     if(WING_DEBUG){
                         $times += (is_array($result["data"]) ? count($result["data"]) : 1);
                         wing_debug($times. '次');
                     }
                     //通知订阅者
                     $this->notice($result);
-                } while (0);
+                }
             } catch (NetException $e) {
-                usleep(500000);
+                wing_debug('retry binlog connect:'.$e->getMessage());
+                wing_log('retry', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
+                sleep(2);
                 $this->binlog->connect(load_config("app"));
-                wing_log('retry', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
             } catch (\Exception $e) {
                 wing_debug($e->getMessage());
-                wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
-                unset($e);
+                wing_log('exception', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
             }
-
-            $output = ob_get_contents();
-            ob_end_clean();
-
-            if ($output && WING_DEBUG) {
-                wing_debug($output);
-            }
-            unset($output);
-            usleep(self::USLEEP);
         }
-
-        return 0;
     }
 }
