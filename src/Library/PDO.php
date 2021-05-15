@@ -143,7 +143,7 @@ class PDO implements IDb
 
             $this->bconnected = true;
         } catch (\PDOException $e) {
-            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
+            wing_log('exception', 'connect fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             if (WING_DEBUG) {
                 var_dump("mysql连接异常:".__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
@@ -154,23 +154,9 @@ class PDO implements IDb
     }
     private function getConnection()
     {
-        $this->init('SELECT 1');
-/*        if (false === $this->ping()) {
-            $this->close();
-            $this->connect();
-        }*/
+        $this->init('SELECT 1'); //用于失败后重连
 
         return $this;
-    }
-
-    public function ping()
-    {
-        try {
-            $this->init('SELECT 1');
-            return true;
-        } catch (\Exception $e) {
-            return false;
-        }
     }
 
     /**
@@ -218,7 +204,7 @@ class PDO implements IDb
 
             return $this->statement->execute($parameters);
         } catch (\PDOException $e) {
-            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
+            wing_log('exception', 'will retry conn', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             $this->close();
             $this->connect();
 
@@ -273,7 +259,7 @@ class PDO implements IDb
                 return $this->statement->rowCount();
             }
         } catch (\PDOException $e) {
-            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
+            wing_log('exception', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             if (WING_DEBUG) {
                 var_dump(__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
@@ -307,7 +293,7 @@ class PDO implements IDb
                 return $result;
             }
         } catch (\PDOException $e) {
-            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
+            wing_log('exception', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             if (WING_DEBUG) {
                 var_dump(__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
