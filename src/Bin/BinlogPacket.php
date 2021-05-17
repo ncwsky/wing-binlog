@@ -118,7 +118,7 @@ class BinlogPacket
         $event_type = unpack('C', $this->read(1))[1];
         $server_id  = unpack('V', $this->read(4))[1];
 
-        wing_debug("server id = ",$server_id);
+        #wing_debug("server id = ",$server_id);
 
         $event_size = unpack('V', $this->read(4))[1];
         //position of the next event
@@ -157,18 +157,18 @@ class BinlogPacket
                 $log_pos = $this->readUint64();
                 $file_name = $this->read($event_size_without_header - 8);
 
-                wing_log('rotate', 'log_pos_offset:'.$log_pos. ', '.$file_name.' : '.$log_pos);
+                wing_log('rotate', $file_name.'   '.$log_pos);
                 Binlog::$forceWriteLogPos = true; //更新日志点
 
                 break;
             case EventType::HEARTBEAT_LOG_EVENT:
                 //心跳检测机制
                 $binlog_name = $this->read($event_size_without_header);
-                wing_debug('心跳事件 => ' . $binlog_name.' : '.$log_pos);
+                wing_debug('HEARTBEAT => ' . $binlog_name.' : '.$log_pos);
 
                 break;
             case EventType::XID_EVENT:
-                wing_debug('XID事件');
+                wing_debug('XID');
 //                $data =  $this->eventXid();
 //                $data["time"] = date("Y-m-d H:i:s", $timestamp);
                 break;
@@ -182,10 +182,10 @@ class BinlogPacket
 
                     wing_log('query', $data, '['.$this->schema_name.']', '['.$this->table_name.']');
                 }
-                wing_debug("QUERY事件", $data, $pack);
+                wing_debug("QUERY", $pack);
                 break;
             default:
-                wing_debug("未知事件", $event_type, $pack);
+                wing_debug("Unknown", $event_type, $pack);
                 break;
         }
 /*        if(isset($data["dbname"])){
@@ -195,9 +195,8 @@ class BinlogPacket
         if (WING_DEBUG) {
             $msg  = $file_name;
             $msg .= '-- next pos -> '.$log_pos;
-            $msg .= ' --  typeEvent -> '.$event_type;
 
-            #wing_log("slave_debug", $msg);
+            wing_debug("position", $msg);
         }
 
         end:

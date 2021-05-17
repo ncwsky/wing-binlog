@@ -92,12 +92,7 @@ class Binlog
             $this->setLastPosition(0, $info["Position"]);
             $this->last_pos = $info["Position"];
         }
-        $start_msg = sprintf(
-            "%-12s%-21s%s\r\n",
-            $this->binlog_file,
-            $this->last_pos,
-            "超始复制点"
-        );
+        $start_msg = sprintf("%-12s%-21s%s\r\n", $this->binlog_file, $this->last_pos, "Starting position");
         echo $start_msg;
         wing_log('rotate', $start_msg);
         $this->connect($config);

@@ -93,17 +93,12 @@ class BinlogWorker extends BaseWorker
         //设置进程标题 mac 会有warning 直接忽略
         set_process_title($process_name);
 
-        $times = 0;
         while (1) {
             try {
                 pcntl_signal_dispatch();
 
+                //通知订阅者
                 if($result = $this->binlog->getBinlogEvents()){
-                    if(WING_DEBUG){
-                        $times += (is_array($result["data"]) ? count($result["data"]) : 1);
-                        wing_debug($times. '次');
-                    }
-                    //通知订阅者
                     $this->notice($result);
                 }
             } catch (NetException $e) {
