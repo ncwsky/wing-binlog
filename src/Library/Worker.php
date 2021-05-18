@@ -49,10 +49,10 @@ class Worker
         register_shutdown_function(function () {
             $log   = date("Y-m-d H:i:s")."=>". $this->getProcessDisplay()."正常退出";
             $winfo = self::getWorkerProcessInfo();
-
+            $process_id = $winfo["process_id"]??0;
             if (!$this->normal_stop) {
                 $log = 'pid:'.$this->getProcessDisplay()."异常退出";
-                if (get_current_processid() == $winfo["process_id"]) {
+                if (get_current_processid() == $process_id) {
                     $log = 'pid:'.$this->getProcessDisplay()."父进程异常退出";
                 }
                 $log .= json_encode(error_get_last(), JSON_UNESCAPED_UNICODE);
@@ -65,7 +65,7 @@ class Worker
             wing_log("error", $log);
 
             //如果父进程异常退出 kill掉所有子进程
-            if (get_current_processid() == $winfo["process_id"] && !$this->normal_stop) {
+            if (get_current_processid() == $process_id && !$this->normal_stop) {
                 $log = "父进程异常退出，尝试kill所有子进程". $this->getProcessDisplay();
 
                 if (WING_DEBUG) {
