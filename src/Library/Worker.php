@@ -160,7 +160,9 @@ class Worker
      */
     public function signalHandler($signal)
     {
-        $winfo     = self::getWorkerProcessInfo();
+        if(IS_WINDOWS) return;
+
+        $winfo     = self::getWorkerProcessInfo();;
         $server_id = $winfo["process_id"];
 
         switch ($signal) {
