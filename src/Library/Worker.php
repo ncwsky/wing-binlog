@@ -39,7 +39,7 @@ class Worker
     ])
     {
         $this->start_time = date("Y-m-d H:i:s");
-        //默认的pid路径，即根目录 wing.pid
+        //默认的pid路径
         self::$pid = HOME."/wing.pid";
         foreach ($params as $key => $value) {
             $this->$key = $value;
@@ -77,6 +77,7 @@ class Worker
 
                 $this->signalHandler(SIGINT);
             }
+            self::clearAll();
         });
     }
 
@@ -99,6 +100,9 @@ class Worker
             "debug"      => $debug,
             "workers"    => $workers
         ];
+    }
+    public static function clearAll(){
+        @unlink(self::$pid);
     }
 
     /**
@@ -276,7 +280,19 @@ class Worker
         $winfo     = self::getWorkerProcessInfo();
         if($winfo){
             $server_id = $winfo["process_id"];
-            posix_kill($server_id, SIGINT);
+            if(IS_WINDOWS){
+                $handle = @popen("taskkill /F /pid ".$server_id,"r");
+                if ($handle) {
+                    $read = fread($handle, 2096);
+                    echo $read,PHP_EOL;
+                    if(strpos($read, 'SUCCESS')!==false || strpos($read,'成功')!==false){
+                        self::clearAll();
+                    }
+                    pclose($handle);
+                }
+            }else{
+                posix_kill($server_id, SIGINT);
+            }
         }else{
             echo 'worker is not running',PHP_EOL;
         }
@@ -324,11 +340,21 @@ class Worker
         echo $str;
         unset($str, $format);
 
+        file_put_contents(
+            self::$pid,
+            json_encode([
+                get_current_processid(),
+                $this->daemon,
+                WING_DEBUG,
+                $this->workers
+            ])
+        );
+        set_process_title("wing php >> master process");
+
         $worker = new BinlogWorker($this->daemon, $this->workers);
         $this->event_process_id = $worker->start();
         unset($worker);
         $this->processes[] = $this->event_process_id;
-
 
         echo sprintf(
             "%-12s%-21s%s\r\n",
@@ -336,17 +362,6 @@ class Worker
             $this->start_time,
             "wing php >> events collector process"
         );
-
-        file_put_contents(
-            self::$pid,
-            json_encode([
-            get_current_processid(),
-                $this->daemon,
-                WING_DEBUG,
-                $this->workers
-            ])
-        );
-        set_process_title("wing php >> master process");
 
         while (1) {
             pcntl_signal_dispatch();
@@ -385,5 +400,6 @@ class Worker
         }
         wing_log('exception', 'worker-start:master服务异常退出');
         wing_debug("master服务异常退出");
+        self::clearAll();
     }
 }
