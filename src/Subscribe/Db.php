@@ -61,6 +61,11 @@ class Db implements ISubscribe
             if(!isset($this->allowDbTable[$result['dbname']])){
                 return;
             }
+            //表检测
+            $this->currTable = $table = $result['table']??'';
+            if(is_array($this->allowDbTable[$result['dbname']]) && !in_array($table, $this->allowDbTable[$result['dbname']])){
+                return;
+            }
             //切换库
             if($this->useDbName!=$result['dbname']){
                 $dbName = isset($this->dbMap[$result['dbname']]) ? $this->dbMap[$result['dbname']] : $result['dbname'];
@@ -68,11 +73,6 @@ class Db implements ISubscribe
 
                 $this->db->execute('use '.$dbName);
                 $this->useDbName = $result['dbname'];
-            }
-            //表检测
-            $this->currTable = $table = $result['table']??'';
-            if(is_array($this->allowDbTable[$result['dbname']]) && !in_array($table, $this->allowDbTable[$result['dbname']])){
-                return;
             }
             /*
             if($result['event']=='query'){
