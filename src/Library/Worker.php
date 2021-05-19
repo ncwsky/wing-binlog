@@ -396,7 +396,7 @@ class Worker
                     wing_debug($content);
                 }
             } catch (\Exception $e) {
-                wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
+                wing_log('exception', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
             }
             sleep(1);
         }

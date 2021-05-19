@@ -103,12 +103,12 @@ class BinlogWorker extends BaseWorker
                 }
             } catch (NetException $e) {
                 wing_debug('retry binlog connect:'.$e->getMessage());
-                wing_log('retry', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
+                wing_log('retry', 'retry binlog connect', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
                 sleep(2);
                 $this->binlog->connect(load_config("app"));
             } catch (\Exception $e) {
                 wing_debug($e->getMessage());
-                wing_log('exception', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
+                wing_log('exception', 'binlog fail',$e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
             }
         }
     }

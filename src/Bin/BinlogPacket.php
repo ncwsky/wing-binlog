@@ -560,8 +560,6 @@ class BinlogPacket
             //if(!isset($colums[$i])){
             //    wing_log("slave_warn", var_export($colums, true).var_export($data, true));
             //}
-            //self::$TABLE_MAP[self::$SCHEMA_NAME][self::$TABLE_NAME]['fields'][$i] =
-            //BinLogColumns::parse($type, $colums[$i], $this);
             $this->table_map[$this->schema_name][$this->table_name]['fields'][$i] = $this->ColumnParse($type, $colums[$i]);
         }
 

@@ -259,7 +259,7 @@ class PDO implements IDb
                 return $this->statement->rowCount();
             }
         } catch (\PDOException $e) {
-            wing_log('exception', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
+            wing_log('exception', 'query fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             if (WING_DEBUG) {
                 var_dump(__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
@@ -293,7 +293,7 @@ class PDO implements IDb
                 return $result;
             }
         } catch (\PDOException $e) {
-            wing_log('exception', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
+            wing_log('exception', 'query fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             if (WING_DEBUG) {
                 var_dump(__CLASS__."::".__FUNCTION__, $e->errorInfo);
             }
@@ -307,7 +307,8 @@ class PDO implements IDb
     public function getFields($schema, $table)
     {
         $sql = "SELECT COLUMN_NAME,COLLATION_NAME,CHARACTER_SET_NAME,COLUMN_COMMENT,COLUMN_TYPE,COLUMN_KEY FROM information_schema.columns WHERE table_schema = '{$schema}' AND table_name = '{$table}'";
-        return $this->query($sql);
+        $data = $this->query($sql);
+        return $data ?: $this->_query("call mysql.getFields('{$schema}','{$table}')"); //使用了自定义获取存储过程
     }
 
     /**

@@ -115,7 +115,7 @@ class Binlog
             $this->registerSlave($config["slave_server_id"]);
         } catch (\Exception $e) {
             wing_debug($e->getMessage());
-            wing_log('exception', $e->getLine(), $e->getFile(), $e->getMessage(), $e->getTraceAsString());
+            wing_log('exception', 'registerSlave fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
         }
     }
 
