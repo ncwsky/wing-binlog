@@ -1,6 +1,4 @@
 <?php namespace Wing\Library\Mysql;
-use Wing\Bin\Auth\Auth;
-use Wing\Bin\Auth\ServerInfo;
 use Wing\Bin\Constant\CharacterSet;
 use Wing\Bin\Constant\Trans;
 use Wing\Bin\Mysql;
@@ -70,16 +68,14 @@ class PDO
     public $sqlstate;//(){}//Returns the SQLSTATE error from previous MySQL operation
     public $warning_count;//(){}//Returns the number of warnings from the last query for the given link
 
-	private $socket;
-
     //Open a new connection to the MySQL server
     public function __construct($host, $username, $passwd, $dbname, $port = 3306)
     {
 		/**
-		 * @var ServerInfo $server_info
+		 * @var \Wing\Bin\ServerInfo $server_info
 		 */
         //认证
-        list($this->socket, $server_info) = \Wing\Bin\Auth\Auth::execute($host,$username,$passwd, $dbname, $port);
+        list(, $server_info) = \Wing\Bin\Auth::execute($host,$username,$passwd, $dbname, $port);
         $this->autocommit(true);
 
 		$this->protocol_version = $server_info->protocol_version;
@@ -101,7 +97,7 @@ class PDO
     public function __destruct()
 	{
 		$res = $this->close();
-		Auth::free();
+        \Wing\Bin\Auth::free();
 		return $res;
 	}
 

@@ -47,7 +47,7 @@ class Worker
 
         set_error_handler([$this, "onError"]);
         register_shutdown_function(function () {
-            $log   = date("Y-m-d H:i:s")."=>". $this->getProcessDisplay()."正常退出";
+            $log   = $this->getProcessDisplay()."正常退出";
             $winfo = self::getWorkerProcessInfo();
             $process_id = $winfo["process_id"]??0;
             if (!$this->normal_stop) {
@@ -77,7 +77,6 @@ class Worker
 
                 $this->signalHandler(SIGINT);
             }
-            self::clearAll();
         });
     }
 
@@ -169,7 +168,10 @@ class Worker
             //stop all
             case SIGINT:
                 $this->normal_stop = true;
-                if ($server_id == get_current_processid()) {
+                $current_processid = get_current_processid();
+                if ($server_id == $current_processid) {
+                    #self::clearAll();
+
                     foreach ($this->processes as $id => $pid) {
                         posix_kill($pid, SIGINT);
                     }
@@ -181,7 +183,8 @@ class Worker
                         $pid = pcntl_wait($status, WNOHANG);//WUNTRACED);
                         if ($pid > 0) {
                             if ($pid == $this->event_process_id) {
-                                wing_debug($pid, "事件收集进程退出");
+                                wing_debug($pid, "事件进程退出");
+                                wing_log('run', $pid, "事件进程退出");
                             }
 
                             $id = array_search($pid, $this->processes);
@@ -201,14 +204,17 @@ class Worker
 
                         if ((time() - $start) >= 5) {
                             wing_debug("退出进程超时");
+                            wing_log('run', $current_processid, "退出进程超时");
                             break;
                         }
                     }
                     wing_debug("父进程退出");
+                    wing_log('run', $current_processid, "父进程退出");
+                }else{
+                    wing_debug($current_processid, "收到退出信号");
+                    wing_log('run', $current_processid, "收到退出信号");
                 }
-                wing_debug(get_current_processid(), "收到退出信号退出");
                 exit(0);
-                break;
             //restart
             case SIGUSR1:
                 $worker_info = Worker::getWorkerProcessInfo();
@@ -311,10 +317,14 @@ class Worker
     }
 
     /**
-     * @启动进程 入口函数
+     * 启动进程 入口函数
+     * @throws \Exception
      */
     public function start()
     {
+        global $argv;
+        $action = isset($argv[1]) ? $argv[1] : '';
+
         pcntl_signal(SIGINT, [$this, 'signalHandler'], false);
         pcntl_signal(SIGUSR1, [$this, 'signalHandler'], false);
         pcntl_signal(SIGUSR2, [$this, 'signalHandler'], false);
@@ -353,6 +363,8 @@ class Worker
         );
         set_process_title("wing php >> master process");
 
+        $action=='restart' && sleep(2); //延迟
+
         $worker = new BinlogWorker($this->daemon, $this->workers);
         $this->event_process_id = $worker->start();
         unset($worker);
@@ -374,6 +386,7 @@ class Worker
 
                 if ($pid > 0) {
                     wing_debug($pid, "进程退出");
+                    wing_log('run', $pid, "进程退出");
                     $this->exit_times++;
                     do {
                         $id = array_search($pid, $this->processes);
@@ -400,8 +413,7 @@ class Worker
             }
             sleep(1);
         }
-        wing_log('exception', 'worker-start:master服务异常退出');
+        wing_log('exception', 'master服务异常退出');
         wing_debug("master服务异常退出");
-        self::clearAll();
     }
 }

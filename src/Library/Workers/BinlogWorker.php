@@ -1,6 +1,7 @@
 <?php
 namespace Wing\Library\Workers;
 
+use Wing\Bin\Net;
 use Wing\Bin\NetException;
 use \Wing\Library\Binlog;
 use Wing\Library\ISubscribe;
@@ -74,7 +75,8 @@ class BinlogWorker extends BaseWorker
             $process_id = pcntl_fork();
 
             if ($process_id < 0) {
-                wing_debug("创建子进程失败");
+                wing_debug('创建子进程失败');
+                wing_log('run', $process_id, '创建子进程失败');
                 exit;
             }
 
@@ -102,11 +104,16 @@ class BinlogWorker extends BaseWorker
                     $this->notice($result);
                 }
             } catch (NetException $e) {
-                wing_debug('retry binlog connect:'.$e->getMessage());
-                wing_log('retry', 'retry binlog connect', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
-                sleep(2);
+                Net::close();
+                sleep(3);
+
+                if($e->getCode()!=4 && $e->getMessage()!='Interrupted system call'){ // 0 Success 连接断开
+                    wing_debug('retry binlog connect:'.$e->getMessage());
+                    wing_log('retry', 'retry binlog connect', $e->getFile().':'.$e->getLine(), $e->getCode(), $e->getMessage(), $e->getTraceAsString());
+                }
                 $this->binlog->connect(load_config("app"));
             } catch (\Exception $e) {
+                Net::close();
                 wing_debug($e->getMessage());
                 wing_log('exception', 'binlog fail',$e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
             }

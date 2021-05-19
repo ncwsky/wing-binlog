@@ -1,4 +1,4 @@
-<?php namespace Wing\Bin\Auth;
+<?php namespace Wing\Bin;
 use Wing\Bin\Constant\CharacterSet;
 
 /**

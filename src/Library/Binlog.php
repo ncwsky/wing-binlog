@@ -1,6 +1,6 @@
 <?php namespace Wing\Library;
 
-use Wing\Bin\Auth\Auth;
+use Wing\Bin\Auth;
 use Wing\Bin\BinlogPacket;
 use Wing\Bin\Net;
 use Wing\Bin\Packet;
@@ -56,6 +56,7 @@ class Binlog
      * @var bool
      */
     public static $forceWriteLogPos = false;
+
     /**
      * 构造函数
      *
