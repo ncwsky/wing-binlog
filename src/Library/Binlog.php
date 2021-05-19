@@ -84,13 +84,11 @@ class Binlog
         if (!$this->binlog_file || !$this->last_pos) {
             //当前使用的binlog 文件
             $info = $this->getCurrentLogInfo();
-            $this->binlog_file = $info["File"];
 
             self::$forceWriteLogPos = true;
             //缓存初始复制点
-            $this->setLastBinLog($this->binlog_file);
+            $this->setLastBinLog($info["File"]);
             $this->setLastPosition(0, $info["Position"]);
-            $this->last_pos = $info["Position"];
         }
         $start_msg = sprintf("%-12s%-21s%s\r\n", $this->binlog_file, $this->last_pos, "Starting position");
         echo $start_msg;
@@ -318,6 +316,7 @@ class Binlog
      */
     public function setLastBinLog($binlog)
     {
+        $this->binlog_file = $binlog;
         return $this->cache_handler->set("mysql.last", $binlog);
     }
     /**
