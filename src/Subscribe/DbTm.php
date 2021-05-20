@@ -41,12 +41,22 @@ class DbTm implements ISubscribe
                 break;
 
         }
-        $this->chain_id = $this->currTable=='merchant'? $data['chain_id'] : $data['mch_id']??0;
+
+        if($this->currTable=='merchant'){
+            $this->chain_id = $data['chain_id'];
+        }else{
+            $mch_id = $data['mch_id']??0;
+            $this->chain_id = (int)db('db2', true)->getCustomId('merchant', 'chain_id', 'id='.$mch_id);
+        }
         if(isset($chainMap[$this->chain_id])) return $chainMap[$this->chain_id];
 
         //查询是否是tm
-        $type = (int)db('db2', true)->getCustomId('merchant', 'type', 'id='.$this->chain_id);
-        $chainMap[$this->chain_id] = $type==99;
+        if($this->chain_id>0){
+            $type = (int)db('db2', true)->getCustomId('merchant', 'type', 'id='.$this->chain_id);
+            $chainMap[$this->chain_id] = $type==99;
+        }else{
+            $chainMap[$this->chain_id] = false;
+        }
         return $chainMap[$this->chain_id];
     }
     //初始库
