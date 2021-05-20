@@ -11,7 +11,6 @@ class DbTm implements ISubscribe
 {
     public $db;
     public $allowDbTable = []; // 格式 ['db_name'=>1|['table_name',...],....]
-    public $dbMap = []; //库名映射
     protected $useDbName = ''; //使用的库名
     protected $currTable = '';
     protected $dataDir = '';
@@ -25,13 +24,12 @@ class DbTm implements ISubscribe
 
         $this->db = db();
         $this->allowDbTable = $config['allow_db_table']??[];
-        $this->dbMap = $config['db_map']??[];
         $this->useDbName = '';
         $this->dataDir = HOME."/cache";
         $this->cache = new File(HOME."/cache");
     }
     //连锁判断
-    protected function makeChainId(&$result){
+    protected function chkChainId(&$result){
 	    static $chainMap = [];
         switch ($result['event']){
             case 'write_rows':
@@ -43,7 +41,7 @@ class DbTm implements ISubscribe
                 break;
 
         }
-        $this->chain_id = $this->currTable=='merchant'? $data['chain_id'] : $data['mch_id'];
+        $this->chain_id = $this->currTable=='merchant'? $data['chain_id'] : $data['mch_id']??0;
         if(isset($chainMap[$this->chain_id])) return $chainMap[$this->chain_id];
 
         //查询是否是tm
@@ -61,6 +59,11 @@ class DbTm implements ISubscribe
         $createSql = 'CREATE DATABASE IF NOT EXISTS '.$dbName.'_'.$this->chain_id.' DEFAULT CHARACTER SET utf8;';
         $this->db->execute($createSql);
 
+
+        $this->useDbName = $name;
+        $this->db->db->config['name'] = $name; //防止重连时丢失选择库
+        $this->db->execute('use '.$name);
+        //初始库.表
         if(is_file(HOME.'/config/'.$dbName.'.sql')){
             $this->db->execute(file_get_contents(HOME.'/config/'.$dbName.'.sql'));
         }
@@ -82,8 +85,8 @@ class DbTm implements ISubscribe
             if(is_array($this->allowDbTable[$result['dbname']]) && !in_array($this->currTable, $this->allowDbTable[$result['dbname']])){
                 return;
             }
-            //连锁id检测
-            if(!$this->makeChainId($result)){
+            //连锁检测
+            if(!$this->chkChainId($result)){
                 return;
             }
 
@@ -99,21 +102,12 @@ class DbTm implements ISubscribe
 
             switch ($result['event']){
                 case 'write_rows':
-                    if(!$this->checkChainId($result['data'])){
-                        return;
-                    }
                     $this->_write($result['data']);
                     break;
                 case 'update_rows':
-                    if(!$this->checkChainId($result['data']['new'])){
-                        return;
-                    }
                     $this->_update($result['data']['new'], $result['data']['old']);
                     break;
                 case 'delete_rows':
-                    if(!$this->checkChainId($result['data'])){
-                        return;
-                    }
                     $this->_delete($result['data']);
                     break;
             }
