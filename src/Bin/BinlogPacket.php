@@ -185,7 +185,7 @@ class BinlogPacket
                 wing_debug("QUERY", $pack);
                 break;
             default:
-                wing_debug("Unknown", $event_type, $pack);
+                #wing_debug("Unknown", $event_type, $pack);
                 break;
         }
 /*        if(isset($data["dbname"])){
@@ -301,7 +301,7 @@ class BinlogPacket
 
     public function readInt24()
     {
-        $data = unpack("CCC", $this->read(3));
+        $data = unpack("C3", $this->read(3));
         $res  = $data[1] | ($data[2] << 8) | ($data[3] << 16);
 
         if ($res >= 0x800000) {
@@ -347,8 +347,9 @@ class BinlogPacket
 
     public function readUint40()
     {
-        $data = unpack("CI", $this->read(5));
-        return $data[1] + ($data[2] << 8);
+        $data1 = unpack("C", $this->read(1))[1];
+        $data2 = unpack("V", $this->read(4))[1];
+        return $data1 + ($data2 << 8);
     }
 
     public function readInt40Be()
@@ -360,14 +361,14 @@ class BinlogPacket
 
     public function readUint48()
     {
-        $data = unpack("vvv", $this->read(6));
+        $data = unpack("v3", $this->read(6));
         return $data[1] + ($data[2] << 16) + ($data[3] << 32);
     }
 
     public function readUint56()
     {
-        $data = unpack("CSI", $this->read(7));
-        return $data[1] + ($data[2] << 8) + ($data[3] << 24);
+        $ret = unpack("Cdata1/vdata2/Vdata3", $this->read(7)); //CvV || CSI
+        return $ret['data1'] + ($ret['data2'] << 8) + ($ret['data3'] << 24);
     }
 
     /*
@@ -465,7 +466,6 @@ class BinlogPacket
         $tableIdStr = $this->read(6) . chr(0) . chr(0);
         //Table ID is 6 byte
         return PHP_INT_SIZE > 4 ? unpack("P", $tableIdStr)[1] : $this->unpackUInt64($tableIdStr);
-        #return unpack("P", $this->read(6).chr(0).chr(0))[1];
     }
 
     /**
@@ -1081,7 +1081,6 @@ class BinlogPacket
 
         return $values;
     }
-
 
     public function addRow($event_type, $size)
     {
