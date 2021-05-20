@@ -749,14 +749,14 @@ class BinlogPacket
         }
 
         for ($i = 0; $i < $uncomp_integral; $i++) {
-            $value = unpack('N', $this->read(4))[1] ^ $mask;
+            $value = $this->readInt32Be() ^ $mask;
             $res  .= sprintf('%09d' , $value);
         }
 
         $res .= ".";
 
         for ($i =0 ; $i < $uncomp_fractional; $i++) {
-            $value = unpack('N', $this->read(4))[1] ^ $mask;
+            $value = $this->readInt32Be() ^ $mask;
             $res  .= sprintf('%09d' , $value);
         }
 
@@ -767,7 +767,7 @@ class BinlogPacket
             $res  .= sprintf('%0'.$comp_fractional.'d' , $value);
         }
 
-        return bcmul($res, '1', $comp_fractional);
+        return bcmul($res, '1', $column['decimals']);
     }
 
     private function _readDatetime()
