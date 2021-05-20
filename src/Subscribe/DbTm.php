@@ -61,22 +61,25 @@ class DbTm implements ISubscribe
     }
     protected function initMerchant(){
         $k = md5(sprintf("%s+%s", 'chain_id='.$this->chain_id, md5('rMRVa&UkF32FjQlF_%_'.($this->chain_id<<6))));
-        $json = \Http::doGet(GetC('api_url').'/merchant/chain-list?chain_id='.$this->chain_id.'&k='.$k, 10, '*/*');
+        $url = GetC('api_url').'/merchant/chain-list?chain_id='.$this->chain_id.'&k='.$k;
+        $json = \Http::doGet($url, 10, '*/*');
+
+        wing_log('initMerchant', $url, $json);
         if ($json === false) {
-            wing_log('init-fail', '数据获取失败:'.'/merchant/chain-list?chain_id='.$this->chain_id.'&k='.$k);
+            wing_log('initMerchant', '数据获取失败');
             return;
         }
         $res = json_decode($json, true);
         if (!$res) {
-            wing_log('init-fail', '数据json解析失败:' . $json);
+            wing_log('initMerchant', '数据json解析失败:' . $json);
             return;
         }
         if(!isset($res['data']) && !array_key_exists('data', $res)){
-            wing_log('init-fail', isset($res['message'])?$res['message']:'数据请求失败');
+            wing_log('initMerchant', isset($res['message'])?$res['message']:'数据请求失败');
             return;
         }
         if($res['code']!=0){
-            wing_log('init-fail', $res['msg']);
+            wing_log('initMerchant', $res['msg']);
             return;
         }
         try{
@@ -89,7 +92,7 @@ class DbTm implements ISubscribe
 
             $this->currTable = $table; //还原表名
         }catch (\Exception $e){
-            wing_log('init-fail', $e->getMessage());
+            wing_log('initMerchant', $e->getMessage());
         }
     }
     //初始库

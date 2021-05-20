@@ -87,6 +87,7 @@ class BinlogPacket
             //读取table_map缓存
             if(is_file($table_map_file)){
                 self::$instance->table_map = json_decode(file_get_contents($table_map_file), true);
+                if(empty(self::$instance->table_map)) self::$instance->table_map = [];
             }
         }
         return self::$instance->packParse($pack, $check_sum);
