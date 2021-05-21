@@ -33,6 +33,7 @@ class PDO implements IDb
     private $lastSql = "";
     private $port = 3306;
     private $char = 'utf8';
+    public $hasTableFields = false;
 
     /**
      * 构造函数
@@ -142,6 +143,11 @@ class PDO implements IDb
             $this->pdo->setAttribute(\PDO::ATTR_EMULATE_PREPARES, false);
 
             $this->bconnected = true;
+
+            //是否有定义获取表字段过程 TableFields(db_name,table_name) 同时必需给账号此过程的执行权限
+            if($this->row("SHOW PROCEDURE STATUS LIKE 'TableFields'")){
+                $this->hasTableFields = true;
+            }
         } catch (\PDOException $e) {
             wing_log('exception', 'connect fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
             if (WING_DEBUG) {
@@ -306,9 +312,12 @@ class PDO implements IDb
 
     public function getFields($schema, $table)
     {
+        //使用了自定义获取存储过程
+        if($this->hasTableFields){
+            return $this->pdo->query("call mysql.TableFields('{$schema}','{$table}')")->fetchAll(\PDO::FETCH_ASSOC);
+        }
         $sql = "SELECT COLUMN_NAME,COLLATION_NAME,CHARACTER_SET_NAME,COLUMN_COMMENT,COLUMN_TYPE,COLUMN_KEY FROM information_schema.columns WHERE table_schema = '{$schema}' AND table_name = '{$table}'";
-        $data = $this->query($sql);
-        return $data ?: $this->_query("call mysql.getFields('{$schema}','{$table}')"); //使用了自定义获取存储过程
+        return $this->query($sql);
     }
 
     /**

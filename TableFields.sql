@@ -1,9 +1,9 @@
 -- 在mysql库中执行创建获取表字段信息存储过程
 
-DROP PROCEDURE IF EXISTS `getFields`;
+DROP PROCEDURE IF EXISTS `TableFields`;
 
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `getFields`(IN $schema varchar(50), IN $table varchar(50))
+CREATE DEFINER=`root`@`localhost` PROCEDURE `TableFields`(IN $schema varchar(50), IN $table varchar(50))
 BEGIN
    SELECT
 		COLUMN_NAME,

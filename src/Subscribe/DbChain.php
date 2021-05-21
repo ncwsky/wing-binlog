@@ -71,7 +71,7 @@ class DbChain implements ISubscribe
             return $data['chain_id']==$this->chain_id;
         }
 
-        $mch_id = $data['mch_id'];
+        $mch_id = $data['mch_id']??0;
 
         if(isset($chainMap[$mch_id])) return $chainMap[$mch_id];
 
@@ -87,19 +87,20 @@ class DbChain implements ISubscribe
             if($result['event']=='query'){
                 return;
             }
+            $db_name = str_replace('_'.$this->chain_id,'',$result['dbname']);
             //库检查
-            if(!isset($this->allowDbTable[$result['dbname']])){
+            if(!isset($this->allowDbTable[$db_name])){
                 return;
             }
             //表检测
             $this->currTable = $result['table']??'';
-            if(is_array($this->allowDbTable[$result['dbname']]) && !in_array($this->currTable, $this->allowDbTable[$result['dbname']])){
+            if(is_array($this->allowDbTable[$db_name]) && !in_array($this->currTable, $this->allowDbTable[$db_name])){
                 return;
             }
             //切换库
-            if($this->useDbName!=$result['dbname']){
-                $dbName = isset($this->dbMap[$result['dbname']]) ? $this->dbMap[$result['dbname']] : $result['dbname'];
-                $this->useDbName = $result['dbname'];
+            if($this->useDbName!=$db_name){
+                $dbName = isset($this->dbMap[$db_name]) ? $this->dbMap[$db_name] : $db_name;
+                $this->useDbName = $db_name;
 
                 $this->db->db->config['name'] = $dbName; //防止重连时丢失选择库
                 $this->db->execute('use '.$dbName);
