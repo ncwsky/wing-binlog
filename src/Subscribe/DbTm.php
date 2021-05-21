@@ -65,15 +65,16 @@ class DbTm implements ISubscribe
         }
         //生成复制账号
         if($chainMap[$this->chain_id]){
+            $sql = "CREATE USER 'yx_".$this->chain_id."'@'%' IDENTIFIED BY 'yx_".$this->chain_id."'";
             try{
-                $sql = "CREATE USER 'yx_".$this->chain_id."'@'%' IDENTIFIED BY 'yx_".$this->chain_id."'";
+                db()->execute($sql);
+            }catch (\Exception $e){}
+            try{
                 db('db2')->execute($sql);
             }catch (\Exception $e){}
 
-            $sql = "GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'yx_".$this->chain_id."'@'%'";
-            db('db2')->execute($sql);
-
-            $sql = "GRANT EXECUTE ON PROCEDURE `mysql`.`TableFields` TO 'yx_".$this->chain_id."'@'%'";
+            $sql = "GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'yx_".$this->chain_id."'@'%';GRANT EXECUTE ON PROCEDURE `mysql`.`TableFields` TO 'yx_".$this->chain_id."'@'%'";
+            db()->execute($sql);
             db('db2')->execute($sql);
             #$sql = "REVOKE EXECUTE ON PROCEDURE `mysql`.`TableFields` FROM 'yx_".$this->chain_id."'@'%';";
 
