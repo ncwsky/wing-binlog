@@ -27,6 +27,12 @@ class DbTm implements ISubscribe
         $this->useDbName = '';
         $this->dataDir = HOME."/cache";
         $this->cache = new File(HOME."/cache");
+
+        //无字段存在过程 创建
+        if(!db('db2')->getOne("SHOW PROCEDURE STATUS LIKE 'TableFields'")){
+            wing_log('run', '生成TableFields过程函数');
+            db('db2')->execute(file_get_contents(HOME.'/config/TableFields.sql'));
+        }
     }
     //连锁判断
     protected function chkChainId(&$result){
@@ -57,6 +63,25 @@ class DbTm implements ISubscribe
         }else{
             $chainMap[$this->chain_id] = false;
         }
+        //生成复制账号
+        if($chainMap[$this->chain_id]){
+            try{
+                $sql = "CREATE USER 'yx_".$this->chain_id."'@'%' IDENTIFIED BY 'yx_".$this->chain_id."'";
+                db('db2')->execute($sql);
+            }catch (\Exception $e){}
+
+            $sql = "GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'yx_".$this->chain_id."'@'%'";
+            db('db2')->execute($sql);
+
+            $sql = "GRANT EXECUTE ON PROCEDURE `mysql`.`TableFields` TO 'yx_".$this->chain_id."'@'%'";
+            db('db2')->execute($sql);
+            #$sql = "REVOKE EXECUTE ON PROCEDURE `mysql`.`TableFields` FROM 'yx_".$this->chain_id."'@'%';";
+            
+            #$sql = "GRANT SELECT ON *.* TO 'yx_40259'@'%';";
+            #db('db2')->execute($sql);
+            #"REVOKE SELECT ON `yxgoods\_40259`.* FROM 'yx_40259'@'%';";
+        }
+        #file_put_contents(HOME.'/logs/chainMap', json_encode($chainMap));
         return $chainMap[$this->chain_id];
     }
     protected function initMerchant(){
@@ -64,7 +89,7 @@ class DbTm implements ISubscribe
         $url = GetC('api_url').'/merchant/chain-list?chain_id='.$this->chain_id.'&k='.$k;
         $json = \Http::doGet($url, 10, '*/*');
 
-        wing_log('initMerchant', $url, $json);
+        #wing_log('initMerchant', $url, $json);
         if ($json === false) {
             wing_log('initMerchant', '数据获取失败');
             return;
@@ -116,6 +141,7 @@ class DbTm implements ISubscribe
         if($dbName==GetC('db2.name')){
             $this->initMerchant();
         }
+        #file_put_contents(HOME.'/logs/dbMap', json_encode($dbMap));
         $dbMap[$name] = true;
     }
 
