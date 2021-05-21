@@ -34,7 +34,6 @@ class Worker
      */
     public function __construct($params = [
         "daemon"  => false,
-        "debug"   => true,
         "workers" => 4
     ])
     {
@@ -91,12 +90,11 @@ class Worker
         if(!is_file(self::$pid)) return [];
 
         $data = file_get_contents(self::$pid);
-        list($pid, $daemon, $debug, $workers) = json_decode($data, true);
+        list($pid, $daemon, $workers) = json_decode($data, true);
 
         return [
             "process_id" => $pid,
             "daemon"     => $daemon,
-            "debug"      => $debug,
             "workers"    => $workers
         ];
     }
@@ -219,14 +217,12 @@ class Worker
             case SIGUSR1:
                 $worker_info = Worker::getWorkerProcessInfo();
                 $daemon      = $worker_info["daemon"];
-                $debug       = $worker_info["debug"];
                 $workers     = $worker_info["workers"];
 
                 Worker::stopAll();
 
                 $worker = new Worker([
                     "daemon"  => (bool)$daemon,
-                    "debug"   => (bool)$debug,
                     "workers" => $workers
                 ]);
                 $worker->start();
@@ -357,7 +353,6 @@ class Worker
             json_encode([
                 get_current_processid(),
                 $this->daemon,
-                WING_DEBUG,
                 $this->workers
             ])
         );

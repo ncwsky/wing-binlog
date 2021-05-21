@@ -45,7 +45,6 @@ if (!file_exists(__DIR__.'/vendor/autoload.php')) {
 require __DIR__.'/vendor/autoload.php';
 
 $action = isset($argv[1]) ? $argv[1] : '';
-$debug = array_search('--debug', $argv) ? true : false;
 $daemon = array_search('-d', $argv) ? true : false;
 $workers = 1;
 $n_key = array_search('-n', $argv);
@@ -53,7 +52,7 @@ if($n_key && isset($argv[$n_key+1]) && is_numeric($argv[$n_key+1])){
     $workers = (int)$argv[$n_key+1];
 }
 
-define("WING_DEBUG", $debug);
+define("WING_DEBUG", !$daemon);
 if (WING_DEBUG) {
     ini_set("display_errors", "On");
     error_reporting(E_ALL);
@@ -72,11 +71,6 @@ if($action=='start'){
 }
 elseif($action=='restart'){
     Worker::stopAll();
-
-    $worker_info = Worker::getWorkerProcessInfo();
-    isset($worker_info["daemon"]) && $daemon = $worker_info["daemon"];
-    isset($worker_info["debug"]) && $debug = $worker_info["debug"];
-    isset($worker_info["workers"]) && $workers = $worker_info["workers"];
 }elseif($action=='stop'){
     file_put_contents($runLock, 0);
     Worker::stopAll();
@@ -87,15 +81,14 @@ elseif($action=='restart'){
     echo file_get_contents(HOME."/logs/status.log");
     exit(0);
 }else{
-    echo "执行 php wing start 开启服务进程，可选参数 -d 以守护进程执行， --debug 启用debug模式， -n 指定进程数量".PHP_EOL;
-    echo "如： php wing start -d --debug -n 8".PHP_EOL;
+    echo "执行 php wing start|restart|stop|status, [start|restart]可选参数 -d 以守护进程执行, -n 指定进程数量".PHP_EOL;
+    echo "如： php wing start -d -n 8".PHP_EOL;
     exit(0);
 }
 
 file_put_contents($runLock, 1);
 $worker = new Worker([
     "daemon"  => !!$daemon,
-    "debug"   => !!$debug,
     "workers" => $workers
 ]);
 $worker->start();
