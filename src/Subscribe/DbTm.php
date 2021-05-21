@@ -76,7 +76,7 @@ class DbTm implements ISubscribe
             $sql = "GRANT EXECUTE ON PROCEDURE `mysql`.`TableFields` TO 'yx_".$this->chain_id."'@'%'";
             db('db2')->execute($sql);
             #$sql = "REVOKE EXECUTE ON PROCEDURE `mysql`.`TableFields` FROM 'yx_".$this->chain_id."'@'%';";
-            
+
             #$sql = "GRANT SELECT ON *.* TO 'yx_40259'@'%';";
             #db('db2')->execute($sql);
             #"REVOKE SELECT ON `yxgoods\_40259`.* FROM 'yx_40259'@'%';";
