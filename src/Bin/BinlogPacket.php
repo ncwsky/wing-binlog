@@ -966,7 +966,7 @@ class BinlogPacket
         $nullBitmapIndex = 0;
         $fields          = $this->table_map[$this->schema_name][$this->table_name]['fields'];
         if(empty($fields)){
-            wing_log('table_map','fields is empty, db:'.$this->schema_name.', table:'.$this->table_name, $this->table_map);
+            wing_log('table_map','fields is empty, db:'.$this->schema_name.', table:'.$this->table_name);
             return $values;
         }
 
