@@ -5,6 +5,8 @@ return  [
     "mysqlbinlog" => "mysqlbinlog",
     //从库id
     "slave_server_id" => 9999,
+    //重连等待时间
+    "retry_connect_sleep" => 6,
     //必须配置：mysql
     "mysql" => [
         "db_name"  => "",
