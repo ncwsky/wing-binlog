@@ -3,7 +3,7 @@
 复制账号需要以下权限：
 >Replication Salve  
 Replication Client  
-Select
+Select 或 使用 config/TableFields.sql 在mysql库中执行创建获取表字段信息存储过程
 
     REPLICATION CLIENT
     REPLICATION SLAVE
@@ -12,7 +12,7 @@ Select
     授予复制账号REPLICATION CLIENT权限，复制用户可以使用 SHOW MASTER STATUS, SHOW SLAVE STATUS和 SHOW BINARY LOGS来确定复制状态。
     授予复制账号REPLICATION SLAVE权限，复制才能真正地工作
     
-    授予Select权限，能通过information_schema.columns查询表的字段结构
+    授予 Select 或 TableFields过程执行 权限，能通过information_schema.columns查询表的字段结构
 
 
 基于mysql数据库binlog的增量订阅&消费
