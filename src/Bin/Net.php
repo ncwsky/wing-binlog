@@ -12,7 +12,6 @@ class Net
      * @var self
      */
 	protected static $instance = null;
-	protected $is_win = false;
 
     /** 初始连接
      * @param string $host
@@ -95,7 +94,6 @@ class Net
         if (!socket_connect($this->socket, $host, $port)) {
             throw new \Exception(socket_strerror(socket_last_error()), socket_last_error());
         }
-        //$this->is_win = defined('IS_WINDOWS') ? IS_WINDOWS : DIRECTORY_SEPARATOR === '\\';
     }
     /**
      * 发送数据
@@ -122,34 +120,6 @@ class Net
      */
     public function read($length)
     {
-/*        if($this->is_win){
-            $bytes_read = 0;
-            $body       = '';
-
-            while ($bytes_read < $length) {
-                $resp = socket_read($this->socket, $length - $bytes_read);
-
-                if ($resp === false) {
-                    throw new NetException(
-                        sprintf(
-                            'remote host has closed. error:%s, msg:%s',
-                            socket_last_error(),
-                            socket_strerror(socket_last_error())
-                        ));
-                }
-
-                // server kill connection or server gone away
-                if ($resp === '') {
-                    throw new NetException("read less " . ($length - $bytes_read));
-                }
-
-                $body .= $resp;
-                $bytes_read += strlen($resp);
-            }
-
-            return $body;
-        }*/
-
         $received = socket_recv($this->socket, $buf, $length, MSG_WAITALL);
         if ($length === $received) {
             return $buf;
