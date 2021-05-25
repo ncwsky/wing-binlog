@@ -11,7 +11,8 @@ return  [
         "host"     => "127.0.0.1",
         "user"     => "slave",
         "password" => "slave",
-        "port"     => 3306
+        "port"     => 3306,
+        "rec_time_out"=>0, //接收超时设置 网络断开时接收可能阻塞 0不限制 无此项配置将默认使用binlog心跳值
     ],
     //异常通知地址 post {title,msg}
     'warn_notice_url'=>'https://xxx.com/warn-notice',

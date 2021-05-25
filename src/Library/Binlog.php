@@ -109,7 +109,7 @@ class Binlog
                 $config["mysql"]["password"],
                 $config["mysql"]["db_name"],
                 $config["mysql"]["port"],
-                self::HEARTBEAT
+                $config["mysql"]["rec_time_out"]??self::HEARTBEAT
             );
 
             //注册为slave
