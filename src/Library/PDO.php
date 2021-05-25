@@ -4,7 +4,6 @@ namespace Wing\Library;
 /**
  * @author yuyi
  * @created 2016/11/25 22:23
- * @email 297341015@qq.com
  * @property \PDO $pdo
  *
  * 数据库操作pdo实现

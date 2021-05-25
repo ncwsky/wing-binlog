@@ -231,7 +231,7 @@ class Worker
                 //echo get_current_processid()," show status\r\n";
 
                 if ($server_id == get_current_processid()) {
-                    $str  = "\r\n".'wing-binlog, version: ' . self::VERSION .' auth: yuyi email: 297341015@qq.com'."\r\n";
+                    $str  = "\r\n".'wing-binlog, version: ' . self::VERSION."\r\n";
                     $str .= "----------------------------------------------------------------------------------------------------------\r\n";
                     $str .= sprintf(
                         "%-12s%-14s%-21s%-36s%s\r\n",
@@ -332,8 +332,7 @@ class Worker
         }
 
         $format = "%-12s%-21s%s\r\n";
-        $str    = "\r\n".'wing-binlog, version: ' .self::VERSION.
-            ' auth: yuyi email: 297341015@qq.com'."\r\n";
+        $str    = "\r\n".'wing-binlog, version: ' .self::VERSION."\r\n";
         $str   .= "-----------------------------------------------------------------------\r\n";
         $str   .=sprintf($format, "process_id", "start_time", "process_name");
         $str   .= "-----------------------------------------------------------------------\r\n";

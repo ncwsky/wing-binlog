@@ -12,18 +12,21 @@ class Net
      * @var self
      */
 	protected static $instance = null;
+	protected $is_win = false;
 
     /** 初始连接
      * @param string $host
      * @param int $port
+     * @param int $rec_time_out
+     * @param int $send_time_out
      * @return false|resource|null
      * @throws \Exception
      */
-	public static function initConnect(string $host, int $port){
+	public static function initConnect(string $host, int $port, $rec_time_out=0, $send_time_out=0){
         if(self::$instance){
             self::$instance->free();
         }
-        self::$instance = new self($host, $port);
+        self::$instance = new self($host, $port, $rec_time_out, $send_time_out);
         return self::$instance->socket;
     }
 
@@ -72,9 +75,11 @@ class Net
      * Net constructor.
      * @param string $host
      * @param int $port
+     * @param int $rec_time_out
+     * @param int $send_time_out
      * @throws \Exception
      */
-    public function __construct(string $host, int $port)
+    public function __construct(string $host, int $port, $rec_time_out=0, $send_time_out=0)
     {
         $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         if (!$this->socket) {
@@ -83,9 +88,14 @@ class Net
         socket_set_block($this->socket);
         socket_set_option($this->socket, SOL_SOCKET, SO_KEEPALIVE, 1);
 
+        //网络断开时 接收可能阻塞 设置此值可跳出阻塞接收过程
+        $rec_time_out>0 && socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, ['sec'=>$rec_time_out,'usec'=>0]);
+        $send_time_out>0 && socket_set_option($this->socket, SOL_SOCKET, SO_SNDTIMEO, ['sec'=>$send_time_out,'usec'=>0]);
+
         if (!socket_connect($this->socket, $host, $port)) {
             throw new \Exception(socket_strerror(socket_last_error()), socket_last_error());
         }
+        //$this->is_win = defined('IS_WINDOWS') ? IS_WINDOWS : DIRECTORY_SEPARATOR === '\\';
     }
     /**
      * 发送数据
@@ -112,6 +122,34 @@ class Net
      */
     public function read($length)
     {
+/*        if($this->is_win){
+            $bytes_read = 0;
+            $body       = '';
+
+            while ($bytes_read < $length) {
+                $resp = socket_read($this->socket, $length - $bytes_read);
+
+                if ($resp === false) {
+                    throw new NetException(
+                        sprintf(
+                            'remote host has closed. error:%s, msg:%s',
+                            socket_last_error(),
+                            socket_strerror(socket_last_error())
+                        ));
+                }
+
+                // server kill connection or server gone away
+                if ($resp === '') {
+                    throw new NetException("read less " . ($length - $bytes_read));
+                }
+
+                $body .= $resp;
+                $bytes_read += strlen($resp);
+            }
+
+            return $body;
+        }*/
+
         $received = socket_recv($this->socket, $buf, $length, MSG_WAITALL);
         if ($length === $received) {
             return $buf;

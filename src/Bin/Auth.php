@@ -5,7 +5,6 @@ use Wing\Bin\Constant\CapabilityFlag;
  * Auth.php
  * User: huangxiaoan
  * Created: 2017/9/11 18:26
- * Email: 297341015@qq.com
  *
  * 连接mysql，完成认证
  */
@@ -17,13 +16,15 @@ class Auth
      * @param $password
      * @param $db
      * @param $port
+     * @param int $rec_time_out
+     * @param int $send_time_out
      * @return array|null
      * @throws \Exception
      */
-    public static function execute($host, $user, $password, $db, $port)
+    public static function execute($host, $user, $password, $db, $port, $rec_time_out=0, $send_time_out=0)
     {
         //初始连接
-        $socket = Net::initConnect($host, $port);
+        $socket = Net::initConnect($host, $port, $rec_time_out, $send_time_out);
 
         // mysql认证
         // 1、socket连接服务器

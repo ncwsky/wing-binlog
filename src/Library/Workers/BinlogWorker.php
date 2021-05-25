@@ -105,7 +105,7 @@ class BinlogWorker extends BaseWorker
                 }
             } catch (NetException $e) {
                 Net::close();
-                sleep(3);
+                sleep(6);
 
                 if($e->getCode()!=4 && $e->getMessage()!='Interrupted system call'){ // 0 Success 连接断开
                     wing_debug('retry binlog connect:'.$e->getMessage());

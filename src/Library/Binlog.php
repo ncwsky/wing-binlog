@@ -15,6 +15,7 @@ use Wing\Cache\File;
  */
 class Binlog
 {
+    const HEARTBEAT = 30;
     /**
     * @var PDO|IDb $db
     */
@@ -107,7 +108,8 @@ class Binlog
                 $config["mysql"]["user"],
                 $config["mysql"]["password"],
                 $config["mysql"]["db_name"],
-                $config["mysql"]["port"]
+                $config["mysql"]["port"],
+                self::HEARTBEAT
             );
 
             //注册为slave
@@ -128,6 +130,7 @@ class Binlog
         $res = BinlogPacket::parse($pack, $this->checksum);
 
         if (!$res) {
+            file_put_contents(HOME.'/logs/null', microtime());
             return null;
         }
 
@@ -158,8 +161,7 @@ class Binlog
             Net::send(Packet::query("set @master_binlog_checksum=@@global.binlog_checksum"));
         }
         //心跳   master_heartbeat_period is nanoseconds  heartbeat_period >= 0.001 &&  heartbeat_period <= 4294967
-        $heart = 30;
-        Net::send(Packet::query("set @master_heartbeat_period=".($heart*1000000000)));
+        Net::send(Packet::query("set @master_heartbeat_period=".(self::HEARTBEAT*1000000000)));
 
         //注册
         $data = Packet::registerSlave($slave_server_id);

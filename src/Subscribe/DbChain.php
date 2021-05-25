@@ -31,6 +31,7 @@ class DbChain implements ISubscribe
         $this->dataDir = HOME."/cache";
         $this->cache = new File(HOME."/cache");
 
+        $this->initDb();
         $this->init();
     }
 	protected function init(){
@@ -38,7 +39,6 @@ class DbChain implements ISubscribe
         $json = \Http::doGet(GetC('api_url').'/merchant/chain-list?chain_id='.$this->chain_id.'&k='.$k, 10, '*/*');
         if ($json === false) {
             throw new \Exception('数据获取失败');
-
         }
         $res = json_decode($json, true);
         if (!$res) {
@@ -64,6 +64,48 @@ class DbChain implements ISubscribe
             exit(1);
         }
     }
+
+    //初始库
+    protected function initDb(){
+	    $dbLock = HOME . '/dbLock'; //防重复运行
+        if(is_file($dbLock)){
+            if(file_get_contents($dbLock)==0){
+                echo 'Please import initial data!',PHP_EOL;
+                exit(0);
+            }else{
+                return;
+            }
+        }
+
+        $dbList = ['yx','yxgoods','yxchain'];
+        foreach ($dbList as $dbName){
+            $createSql = 'CREATE DATABASE IF NOT EXISTS '.$dbName.' DEFAULT CHARACTER SET utf8;';
+            $this->db->execute($createSql);
+
+            $this->db->execute('use '.$dbName);
+            //初始库.表
+            if(is_file(HOME.'/config/'.$dbName.'.sql')){
+                $this->db->execute(file_get_contents(HOME.'/config/'.$dbName.'.sql'));
+            }
+        }
+        file_put_contents($dbLock, 0);
+        $this->db->execute('use yx');
+        $this->init();
+
+        $merchants = $this->db->query('select id from merchant', true);
+        $mchIds = implode(',', array_column($merchants, 'id'));
+        $sql = '#!/bin/bash'.PHP_EOL;
+        foreach ($this->allowDbTable as $dbName=>$tables){
+            foreach ($tables as $table){
+                if($table=='merchant') continue;
+                $sql .= "mysqldump -uroot -pd79f03f02ad4dece --skip-opt --no-create-info=TRUE --where='mch_id in({$mchIds})' {$dbName}_tm {$table}-".($this->chain_id%10).">{$dbName}.{$table}.sql;".PHP_EOL;
+            }
+        }
+        file_put_contents(HOME . '/sql_dump_cmd.sh', $sql.PHP_EOL. "tar -czvf sql_dump.tar.gz  ./*.sql". PHP_EOL.'exit 0'.PHP_EOL);
+        echo 'db init ok!',PHP_EOL;
+        exit(0);
+    }
+
     //连锁判断
     public function checkChainId(&$data){
         static $chainMap = [];
