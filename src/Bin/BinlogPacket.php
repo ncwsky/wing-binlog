@@ -181,7 +181,7 @@ class BinlogPacket
                 if ($this->schema_name && $this->table_name && $this->schema_name==$data['dbname'] && strpos(strtolower($data['data']), strtolower($this->table_name)) !== false) {
                     $this->unsetTableMapCache($this->schema_name, $this->table_name);
 
-                    wing_log('query', $data, '['.$this->schema_name.']', '['.$this->table_name.']');
+                    #wing_log('query', $data, '['.$this->schema_name.']', '['.$this->table_name.']');
                 }
                 wing_debug("QUERY", $pack);
                 break;

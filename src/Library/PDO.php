@@ -313,7 +313,7 @@ class PDO implements IDb
     {
         //使用了自定义获取存储过程
         if($this->hasTableFields){
-            return $this->pdo->query("call mysql.TableFields('{$schema}','{$table}')")->fetchAll(\PDO::FETCH_ASSOC);
+            return $this->getConnection()->pdo->query("call mysql.TableFields('{$schema}','{$table}')")->fetchAll(\PDO::FETCH_ASSOC);
         }
         $sql = "SELECT COLUMN_NAME,COLLATION_NAME,CHARACTER_SET_NAME,COLUMN_COMMENT,COLUMN_TYPE,COLUMN_KEY FROM information_schema.columns WHERE table_schema = '{$schema}' AND table_name = '{$table}'";
         return $this->query($sql);
