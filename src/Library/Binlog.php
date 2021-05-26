@@ -116,7 +116,7 @@ class Binlog
             $this->registerSlave($config["slave_server_id"]);
         } catch (\Exception $e) {
             wing_debug($e->getMessage());
-            wing_log('exception', 'registerSlave fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->getTraceAsString());
+            wing_log('exception', 'registerSlave fail', $e->getFile().':'.$e->getLine(), $e->getMessage());
         }
     }
 
@@ -126,8 +126,12 @@ class Binlog
      */
     public function getBinlogEvents()
     {
+        \set_error_handler(function($code, $msg, $file, $line){
+            wing_log('error', "{$file}:{$line}\t{$msg}");
+        });
         $pack = Packet::readPacket(true); // 校验数据包格式 Packet::success($pack);
         $res = BinlogPacket::parse($pack, $this->checksum);
+        \restore_error_handler();
 
         if (!$res) {
             file_put_contents(HOME.'/logs/null', microtime());

@@ -289,24 +289,21 @@ if (!function_exists("wing_debug")) {
 if (!function_exists("wing_log")) {
     function wing_log($level = "log", $msg = "")
     {
-        $log = date("Y-m-d H:i:s")." ";
-        $argvs = func_get_args();
-        array_shift($argvs);
-        foreach ($argvs as $item) {
-            if (is_scalar($item)) {
-                $log .= $item."  ";
-            } else {
-                $log.= json_encode($item, JSON_UNESCAPED_UNICODE)."  ";
+        $msg = is_scalar($msg) ? $msg : json_encode($msg, JSON_UNESCAPED_UNICODE);
+        $log = date("Y-m-d H:i:s") . " ". $msg;
+        $args_num = func_num_args();
+        if ($args_num > 2) {
+            $args = func_get_args();
+            for ($i = 2; $i < $args_num; $i++) {
+                $log .= "  " . (is_scalar($args[$i]) ? $args[$i] : json_encode($args[$i], JSON_UNESCAPED_UNICODE));
             }
         }
-        $log .= "\r\n";
-        file_put_contents(HOME."/logs/".$level.".log", $log, FILE_APPEND);
+        file_put_contents(HOME."/logs/".$level.".log", $log."\r\n", FILE_APPEND);
 
         if($level=='exception' || $level=='retry' || $level=='error' || strpos($log,'退出')!==false){
             //发送通知
             $appConfig = load_config("app");
             if (!empty($appConfig['warn_notice_url'])) {
-                $msg = is_scalar($msg) ? $msg : json_encode($msg, JSON_UNESCAPED_UNICODE);
                 $ret = curlSend($appConfig['warn_notice_url'], 'POST', ['title' => $level, 'msg' => $msg]);
                 file_put_contents(HOME . "/logs/warn_notice.log", date("Y-m-d H:i:s") . '[' . $level . '] msg:' . $msg . ' => ' . $ret . "\r\n", FILE_APPEND);
             }
