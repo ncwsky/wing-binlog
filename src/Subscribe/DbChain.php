@@ -191,7 +191,7 @@ class DbChain implements ISubscribe
                 }
 
                 //$result 缓存下来用于修复处理
-                error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/fail_data');
+                file_put_contents($this->dataDir.'/fail_data', date("Y-m-d H:i:s ").json_encode($result)."\n", FILE_APPEND);
             }
         }
 	}
