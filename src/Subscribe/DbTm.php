@@ -48,17 +48,27 @@ class DbTm implements ISubscribe
 
         }
 
+        $is_chain = false;
         if($this->currTable=='merchant'){
             $this->chain_id = $data['chain_id'];
         }else{
-            $mch_id = $data['mch_id']??0;
-            $this->chain_id = (int)db('db2', true)->getCustomId('merchant', 'chain_id', 'id='.$mch_id);
+            if($this->currTable=='user'){
+                #如果结果是0 不是tm
+                $this->chain_id = (int)db('db2')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
+                $is_chain = $this->chain_id ? true : false;
+            }elseif(isset($data['chain_id'])) { //chain_user类表
+                $this->chain_id = $data['chain_id'];
+                $is_chain = true;
+            }else{
+                $mch_id = $data['mch_id']??0;
+                $this->chain_id = (int)db('db2', true)->getCustomId('merchant', 'chain_id', 'id='.$mch_id);
+            }
         }
         if(isset($chainMap[$this->chain_id])) return $chainMap[$this->chain_id];
 
         //查询是否是tm
         if($this->chain_id>0){
-            $type = (int)db('db2', true)->getCustomId('merchant', 'type', 'id='.$this->chain_id);
+            $type = $is_chain ? 99 : (int)db('db2', true)->getCustomId('merchant', 'type', 'id='.$this->chain_id);
             $chainMap[$this->chain_id] = $type==99;
         }else{
             $chainMap[$this->chain_id] = false;

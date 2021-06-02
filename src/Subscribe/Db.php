@@ -38,6 +38,11 @@ class Db implements ISubscribe
     public function getShardId(&$data){
         static $chainMap = [];
         if($this->currTable=='merchant') return 9999; //商户表不分片处理
+        if($this->currTable=='user'){
+            return (int)db('db2')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
+        }
+
+        if(isset($data['chain_id'])) return $data['chain_id']; //有连锁id的直接返回
 
         $mch_id = $data['mch_id'];
 

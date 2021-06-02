@@ -112,6 +112,12 @@ class DbChain implements ISubscribe
         if($this->currTable=='merchant') {
             return $data['chain_id']==$this->chain_id;
         }
+        if($this->currTable=='user'){
+            $chain_id = (int)db('db2')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
+            return $chain_id==$this->chain_id;
+        }
+
+        if(isset($data['chain_id'])) return $data['chain_id']; //有连锁id的直接返回
 
         $mch_id = $data['mch_id']??0;
 
