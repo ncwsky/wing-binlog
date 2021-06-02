@@ -120,7 +120,7 @@ class DbChain implements ISubscribe
             return $data['chain_id']==$this->chain_id;
         }
         if($this->currTable=='user'){
-            $chain_id = (int)db('db2')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
+            $chain_id = (int)$this->db->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
             return $chain_id==$this->chain_id;
         }
 
