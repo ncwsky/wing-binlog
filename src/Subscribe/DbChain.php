@@ -34,26 +34,27 @@ class DbChain implements ISubscribe
         $this->initDb();
         $this->init();
     }
-	protected function init(){
-	    $k = md5(sprintf("%s+%s", 'chain_id='.$this->chain_id, md5('rMRVa&UkF32FjQlF_%_'.($this->chain_id<<6))));
-        $json = \Http::doGet(GetC('api_url').'/merchant/chain-list?chain_id='.$this->chain_id.'&k='.$k, 10, '*/*');
+    public static function curl($chain_id, $url, $params=''){
+        $k = md5(sprintf("%s+%s", 'chain_id='.$chain_id, md5('rMRVa&UkF32FjQlF_%_'.($chain_id<<6))));
+        $json = \Http::doGet(GetC('api_url').$url.'?chain_id='.$chain_id.'&k='.$k.($params?'&'.$params:''), 10, '*/*');
         if ($json === false) {
             throw new \Exception('数据获取失败');
         }
         $res = json_decode($json, true);
         if (!$res) {
-            wing_log('init-fail', '数据json解析失败:' . $json);
-            exit(1);
+            throw new \Exception('数据json解析失败:' . $json);
         }
         if(!isset($res['data']) && !array_key_exists('data', $res)){
-            wing_log('init-fail', isset($res['message'])?$res['message']:'数据请求失败');
-            exit(1);
+            throw new \Exception(isset($res['message'])?$res['message']:'数据请求失败');
         }
         if($res['code']!=0){
-            wing_log('init-fail', $res['msg']);
-            exit(1);
+            throw new \Exception($res['msg']);
         }
+        return $res;
+    }
+	protected function init(){
         try{
+            $res = self::curl($this->chain_id, '/merchant/chain-list');
             $this->currTable = 'merchant';
             foreach ($res['data'] as $v){
                 $this->_update($v, $v);
@@ -98,7 +99,13 @@ class DbChain implements ISubscribe
         foreach ($this->allowDbTable as $dbName=>$tables){
             foreach ($tables as $table){
                 if($table=='merchant') continue;
-                $sql .= "mysqldump -uroot -pd79f03f02ad4dece --skip-opt --no-create-info=TRUE --where='mch_id in({$mchIds})' {$dbName}_tm {$table}-".($this->chain_id%10).">{$dbName}.{$table}.sql;".PHP_EOL;
+                if($table=='user') continue;
+
+                if(in_array($table, ['chain_user','chain_mchuser','user_info'])){
+                    $sql .= "mysqldump -uroot -pd79f03f02ad4dece --skip-opt --no-create-info=TRUE --where='mch_id={$this->chain_id}' {$dbName}_tm {$table}-".($this->chain_id%10).">{$dbName}.{$table}.sql;".PHP_EOL;
+                }else{
+                    $sql .= "mysqldump -uroot -pd79f03f02ad4dece --skip-opt --no-create-info=TRUE --where='mch_id in({$mchIds})' {$dbName}_tm {$table}-".($this->chain_id%10).">{$dbName}.{$table}.sql;".PHP_EOL;
+                }
             }
         }
         file_put_contents(HOME . '/sql_dump_cmd.sh', $sql.PHP_EOL. "tar -czvf sql_dump.tar.gz  ./*.sql". PHP_EOL.'exit 0'.PHP_EOL);

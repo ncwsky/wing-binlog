@@ -52,6 +52,39 @@ foreach ($sqlList as $file){
     fclose($fp);
     echo $file_name.':'.$i,PHP_EOL;
 }
+
+
+$uid = 0;
+$res = db()->query('select uid from yxchain.chain_user where uid>'.$uid.' order by id asc limit 200',true);
+while($res){
+    try{
+        $ids = '';
+        foreach ($res as $v){
+            $ids .= ','.$v['uid'];
+            $uid = $v['uid'];
+        }
+        $ids = substr($ids,1);
+
+        $ret = \Wing\Subscribe\DbChain::curl($chain_id, '/merchant/chain-user', 'id='.$ids);
+        foreach ($ret['data'] as $v){
+            $model = new \Model('user');
+            if($model->where(['id'=>$v['id']])->find()){
+                continue;
+            }
+            $model->setData($v);
+            if($model->save(null, null, 0)===false){
+                throw new \Exception(\myphp::err());
+            }
+        }
+    }catch (\Exception $e){
+        echo $e->getMessage();
+        die();
+    }
+    usleep(100000);
+    $res = db()->query('select uid from yxchain.chain_user where uid>'.$uid.' order by id asc',true);
+}
+
 $dbLock = HOME . '/dbLock'; //防重复运行
 file_put_contents($dbLock, 1);
 echo toByte(memory_get_peak_usage()), ' -- ', run_mem(),' -- ', run_time(),PHP_EOL;
+
