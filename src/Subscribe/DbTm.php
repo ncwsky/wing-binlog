@@ -31,7 +31,9 @@ class DbTm implements ISubscribe
         //无字段存在过程 创建
         if(!db('db2')->getOne("SHOW PROCEDURE STATUS LIKE 'TableFields'")){
             wing_log('run', '生成TableFields过程函数');
+            db('db2')->execute('use mysql');
             db('db2')->execute(file_get_contents(HOME.'/config/TableFields.sql'));
+            db('db2')->execute('use '.GetC('db2.name'));
         }
     }
     //连锁判断
