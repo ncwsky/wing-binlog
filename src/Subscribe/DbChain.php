@@ -102,7 +102,7 @@ class DbChain implements ISubscribe
                 if($table=='user') continue;
 
                 if(in_array($table, ['chain_user','chain_mchuser','user_info'])){
-                    $sql .= "mysqldump -uroot -pd79f03f02ad4dece --skip-opt --no-create-info=TRUE --where='mch_id={$this->chain_id}' {$dbName}_tm {$table}-".($this->chain_id%10).">{$dbName}.{$table}.sql;".PHP_EOL;
+                    $sql .= "mysqldump -uroot -pd79f03f02ad4dece --skip-opt --no-create-info=TRUE --where='chain_id={$this->chain_id}' {$dbName}_tm {$table}-".($this->chain_id%10).">{$dbName}.{$table}.sql;".PHP_EOL;
                 }else{
                     $sql .= "mysqldump -uroot -pd79f03f02ad4dece --skip-opt --no-create-info=TRUE --where='mch_id in({$mchIds})' {$dbName}_tm {$table}-".($this->chain_id%10).">{$dbName}.{$table}.sql;".PHP_EOL;
                 }
