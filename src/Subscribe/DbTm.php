@@ -55,8 +55,12 @@ class DbTm implements ISubscribe
             $this->chain_id = $data['chain_id'];
         }else{
             if($this->currTable=='user'){
+                $this->chain_id = 0;
+                if(strpos($data['ext'],'chain_id')){
+                    $this->chain_id = intval(json_decode($data['ext'], true)['chain_id']??0);
+                }
                 #如果结果是0 不是tm
-                $this->chain_id = (int)db('db2')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
+                $this->chain_id===0 && $this->chain_id = (int)db('db2')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
                 $is_chain = $this->chain_id ? true : false;
             }elseif(isset($data['chain_id'])) { //chain_user类表
                 $this->chain_id = $data['chain_id'];

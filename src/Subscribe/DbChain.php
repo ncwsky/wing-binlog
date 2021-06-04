@@ -34,9 +34,12 @@ class DbChain implements ISubscribe
         $this->initDb();
         $this->init();
     }
-    public static function curl($chain_id, $url, $params=''){
-        $k = md5(sprintf("%s+%s", 'chain_id='.$chain_id, md5('rMRVa&UkF32FjQlF_%_'.($chain_id<<6))));
-        $json = \Http::doGet(GetC('api_url').$url.'?chain_id='.$chain_id.'&k='.$k.($params?'&'.$params:''), 10, '*/*');
+    public static function curl($chain_id, $url, $params=[]){
+	    $data = array_merge(['chain_id'=>$chain_id],$params);
+        ksort($data); //键名升序
+        $qStr = http_build_query($data);
+        $k = md5(sprintf("%s+%s", $qStr, md5('rMRVa&UkF32FjQlF_%_'.($chain_id<<6))));
+        $json = \Http::doGet(GetC('api_url').$url.'?k='.$k.'&'.$qStr, 10, '*/*');
         if ($json === false) {
             throw new \Exception('数据获取失败');
         }
@@ -120,11 +123,15 @@ class DbChain implements ISubscribe
             return $data['chain_id']==$this->chain_id;
         }
         if($this->currTable=='user'){
-            $chain_id = (int)$this->db->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
+            $chain_id = 0;
+            if(strpos($data['ext'],'chain_id')){
+                $chain_id = intval(json_decode($data['ext'], true)['chain_id']??0);
+            }
+            $chain_id===0 && $chain_id = (int)$this->db->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
             return $chain_id==$this->chain_id;
         }
 
-        if(isset($data['chain_id'])) return $data['chain_id']; //有连锁id的直接返回
+        if(isset($data['chain_id'])) return $data['chain_id']==$this->chain_id; //有连锁id的直接返回
 
         $mch_id = $data['mch_id']??0;
 

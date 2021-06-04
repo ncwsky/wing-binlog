@@ -50,6 +50,7 @@ foreach ($sqlList as $file){
         #echo $sql,PHP_EOL;
     }
     fclose($fp);
+    @unlink($file);
     echo $file_name.':'.$i,PHP_EOL;
 }
 
@@ -65,7 +66,7 @@ while($res){
         }
         $ids = substr($ids,1);
 
-        $ret = \Wing\Subscribe\DbChain::curl($chain_id, '/merchant/chain-user', 'id='.$ids);
+        $ret = \Wing\Subscribe\DbChain::curl($chain_id, '/merchant/chain-user', ['id'=>$ids]);
         foreach ($ret['data'] as $v){
             $model = new \Model('user');
             if($model->where(['id'=>$v['id']])->find()){
@@ -76,12 +77,13 @@ while($res){
                 throw new \Exception(\myphp::err());
             }
         }
+        echo count($ret),PHP_EOL;
     }catch (\Exception $e){
         echo $e->getMessage();
         die();
     }
     usleep(100000);
-    $res = db()->query('select uid from yxchain.chain_user where uid>'.$uid.' order by id asc',true);
+    $res = db()->query('select uid from yxchain.chain_user where uid>'.$uid.' order by id asc limit 200',true);
 }
 
 $dbLock = HOME . '/dbLock'; //防重复运行

@@ -39,7 +39,12 @@ class Db implements ISubscribe
         static $chainMap = [];
         if($this->currTable=='merchant') return 9999; //商户表不分片处理
         if($this->currTable=='user'){
-            return (int)db('db2')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
+            $chain_id = 0;
+            if(strpos($data['ext'],'chain_id')){
+                $chain_id = intval(json_decode($data['ext'], true)['chain_id']??0);
+            }
+            $chain_id===0 && $chain_id = (int)db('db2')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
+            return $chain_id;
         }
 
         if(isset($data['chain_id'])) return $data['chain_id']; //有连锁id的直接返回
