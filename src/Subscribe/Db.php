@@ -169,6 +169,11 @@ class Db implements ISubscribe
         }
 
         $table = $this->tableName($this->currTable, $shardId);
+        
+        if($this->currTable=='user' || $this->currTable=='mchuser'){
+            $this->db->del($table, ['id'=>$data['id']]);
+            return;
+        }
 
         $day30 = strtotime('-1 month');
         // order 未支付的支持删除

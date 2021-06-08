@@ -232,6 +232,11 @@ class DbChain implements ISubscribe
         }
     }
 	protected function _delete($data){
+        if($this->currTable=='user' || $this->currTable=='mchuser'){
+            $this->db->del($this->currTable, ['id'=>$data['id']]);
+            return;
+        }
+        
         $day30 = strtotime('-1 month');
         // order 未支付的支持删除
         if($this->currTable=='order' && $data['pay_time']==0 && $day30>$data['ctime']){
