@@ -41,7 +41,7 @@ class Db implements ISubscribe
     //以连锁id为分片依据
     public function getShardId(&$data){
         static $chainMap = [];
-        if($this->isNoShareTable($this->currTable)) return 9999; //不分片表处理
+        if($this->currTable=='merchant') return 9999; //不分片表处理
         if($this->currTable=='user'){
             $chain_id = 0;
             if(strpos($data['ext'],'chain_id')){
