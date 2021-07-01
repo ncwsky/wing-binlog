@@ -29,7 +29,7 @@ class Db implements ISubscribe
         $this->dataDir = HOME."/cache";
         $this->cache = new File(HOME."/cache");
 	}
-	protected $not_share_tables = ',merchant,goods,';
+	protected $not_share_tables = ',merchant,goods,supplier,';
 	protected function isNoShareTable($table){
 	    return strpos($this->not_share_tables, ','.$table.',')!==false;
     }
