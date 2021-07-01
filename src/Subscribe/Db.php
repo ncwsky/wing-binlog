@@ -29,15 +29,19 @@ class Db implements ISubscribe
         $this->dataDir = HOME."/cache";
         $this->cache = new File(HOME."/cache");
 	}
+	protected $not_share_tables = ',merchant,goods,';
+	protected function isNoShareTable($table){
+	    return strpos($this->not_share_tables, ','.$table.',')!==false;
+    }
 	public function tableName($table, $shardId){
-	    if($table=='merchant') return $table;
+	    if($this->isNoShareTable($table)) return $table;
 
         return $table.'-'.($shardId%10);
     }
     //以连锁id为分片依据
     public function getShardId(&$data){
         static $chainMap = [];
-        if($this->currTable=='merchant') return 9999; //商户表不分片处理
+        if($this->isNoShareTable($this->currTable)) return 9999; //不分片表处理
         if($this->currTable=='user'){
             $chain_id = 0;
             if(strpos($data['ext'],'chain_id')){
@@ -163,7 +167,7 @@ class Db implements ISubscribe
         $shardId = $this->getShardId($data);
         if($shardId==0) return;
 
-        if($this->currTable=='merchant'){
+        if($this->isNoShareTable($this->currTable)){
             $this->db->del($this->currTable, ['id'=>$data['id']]);
             return;
         }
