@@ -47,7 +47,7 @@ class Db implements ISubscribe
             if(strpos($data['ext'],'chain_id')){
                 $chain_id = intval(json_decode($data['ext'], true)['chain_id']??0);
             }
-            $chain_id===0 && $chain_id = (int)db('db2')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
+            $chain_id===0 && $chain_id = (int)db('master')->getCustomId('yxchain.chain_user', 'chain_id', 'uid='.$data['id']);
             return $chain_id;
         }
 
