@@ -62,6 +62,7 @@ class Db implements ISubscribe
         if($type!=99) $chain_id = 0; //不是tm
 
         $chainMap[$mch_id] = $chain_id;
+        file_put_contents($this->dataDir.'/chain_map', json_encode($chainMap));
         return $chain_id;
     }
 
