@@ -38,10 +38,35 @@ class Db implements ISubscribe
 
         return $table.'-'.($shardId%10);
     }
+
+    //是否tm关联缓存
+    protected function _chainMap($mch_id, $chain_id=0){
+        static $chainMap = [];
+
+        if($chain_id==0) {
+            if(isset($chainMap[$mch_id])) return $chainMap[$mch_id];
+
+            $chain_id = (int)$this->db->getCustomId('yx_tm.merchant', 'chain_id', 'id='.$mch_id);
+        }
+        $type = (int)$this->db->getCustomId('yx_tm.merchant', 'type', 'id='.$chain_id);
+        if($type!=99) $chain_id = 0; //不是tm
+
+        if(!isset($chainMap[$mch_id]) || $chainMap[$mch_id]!=$chain_id) {
+            $chainMap[$mch_id] = $chain_id;
+            file_put_contents($this->dataDir.'/chain_map', json_encode($chainMap));
+        }
+
+        return $chain_id;
+    }
+
     //以连锁id为分片依据
     public function getShardId(&$data){
-        static $chainMap = [];
-        if($this->currTable=='merchant') return 9999; //不分片表处理
+        if($this->currTable=='merchant') { //不分片表处理
+            $this->_chainMap($data['id'], (int)$data['chain_id']); //更新关联缓存
+
+            return 9999;
+        }
+
         if($this->currTable=='user'){
             $chain_id = 0;
             if(strpos($data['ext'],'chain_id')){
@@ -53,17 +78,7 @@ class Db implements ISubscribe
 
         if(isset($data['chain_id'])) return $data['chain_id']; //有连锁id的直接返回
 
-        $mch_id = $data['mch_id'];
-
-        if(isset($chainMap[$mch_id])) return $chainMap[$mch_id];
-
-        $chain_id = (int)$this->db->getCustomId('yx_tm.merchant', 'chain_id', 'id='.$mch_id);
-        $type = (int)$this->db->getCustomId('yx_tm.merchant', 'type', 'id='.$chain_id);
-        if($type!=99) $chain_id = 0; //不是tm
-
-        $chainMap[$mch_id] = $chain_id;
-        file_put_contents($this->dataDir.'/chain_map', json_encode($chainMap));
-        return $chain_id;
+        return $this->_chainMap($data['mch_id']);
     }
 
 	public function onchange($result)
