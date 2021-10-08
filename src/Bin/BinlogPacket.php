@@ -47,7 +47,11 @@ class BinlogPacket
      * table_map 缓存文件
      * @var string
      */
-    protected $table_map_file = '';
+    protected $table_map_file = HOME . '/cache/table_map.json';
+
+    //do_db【匹配库】、ignore_db【忽略库】二选一 优先判断do_db 使用,分隔
+    protected $do_db = '';
+    protected $ig_db = '';
 
     public static $bitCountInByte = [
         0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
@@ -68,43 +72,40 @@ class BinlogPacket
         4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
     ];
 
-    private static $instance = null;
-
-    /**
-    * 此api为唯一入口，对外必须以静态单例调用
-    * 因为有些属性前面初始化后，后面可能继续使用的
-    *
-    * @param string $pack 数据包，次参数来源于Packet::readPacket
-    * @param bool $check_sum
-    * @return array|mixed
-    */
-    public static function parse($pack, $check_sum = true)
+    public function __construct($do_db='', $ig_db='')
     {
-        if (!self::$instance) {
-            self::$instance = new self();
-            $table_map_file = HOME.'/cache/table_map.json';
-            self::$instance->table_map_file = $table_map_file;
-            //读取table_map缓存
-            if(is_file($table_map_file)){
-                self::$instance->table_map = json_decode(file_get_contents($table_map_file), true);
-                if(empty(self::$instance->table_map)) self::$instance->table_map = [];
-            }
+        if ($do_db !== '') $this->do_db = ',' . $do_db . ',';
+        if ($ig_db !== '') $this->ig_db = ',' . $ig_db . ',';
+        //读取table_map缓存
+        if (is_file($this->table_map_file)) {
+            $this->table_map = json_decode(file_get_contents($this->table_map_file), true);
+            if (empty($this->table_map)) $this->table_map = [];
         }
-        return self::$instance->packParse($pack, $check_sum);
+    }
+
+    protected function allowDb($db_name)
+    {
+        $db_name = ',' . $db_name . ',';
+        if ($this->do_db !== '') {
+            return strpos($this->do_db, $db_name) !== false;
+        }
+        if ($this->ig_db !== '') {
+            return strpos($this->ig_db, $db_name) === false;
+        }
+        return true;
     }
 
     /**
-    * 内部入口
-    *
-    * @param string $pack binlog事件数据包，次参数来源于Packet::readPacket
-    * @param bool $check_sum
-    * @return array|mixed
-    */
-    private function packParse($pack, $check_sum = true)
+     *
+     * @param string $pack 数据包，次参数来源于Packet::readPacket
+     * @param bool $check_sum
+     * @return array|mixed
+     */
+    public function parse($pack, $check_sum = true)
     {
-        $file_name  = null;
-        $data       = [];
-        $log_pos    = 0;
+        $file_name = null;
+        $data = [];
+        $log_pos = 0;
 
         if (strlen($pack) < 20) { //公有事件头 ok[1]+固定[19]字节
             goto end;
@@ -115,22 +116,27 @@ class BinlogPacket
 
         $this->advance(1); # OK value
 
-        $timestamp  = unpack('V', $this->read(4))[1];
+        $timestamp = unpack('V', $this->read(4))[1];
         $event_type = unpack('C', $this->read(1))[1];
-        $server_id  = unpack('V', $this->read(4))[1];
+        $server_id = unpack('V', $this->read(4))[1];
 
         #wing_debug("server id = ",$server_id);
 
         $event_size = unpack('V', $this->read(4))[1];
         //position of the next event
-        $log_pos    = unpack('V', $this->read(4))[1];
-
+        $log_pos = unpack('V', $this->read(4))[1];
         $flags = unpack('v', $this->read(2))[1];
 
         //排除事件头Event Head的事件大小
-        $event_size_without_header = $check_sum === true ? ($event_size -23) : $event_size - 19;
+        $event_size_without_header = $check_sum === true ? ($event_size - 23) : $event_size - 19;
 
         switch ($event_type) {
+            case EventType::FORMAT_DESCRIPTION_EVENT:
+                $binlog_version = $this->readInt16();
+                $mysql_version = $this->read(50);
+                $create_timestamp = $this->readInt32();
+                wing_debug('FORMAT_DESCRIPTION_EVENT', 'ServerVer:', $mysql_version, 'BinlogVer:', $binlog_version, 'CreateTimestamp:', $create_timestamp);
+                break;
             // 映射fileds相关信息
             case EventType::TABLE_MAP_EVENT:
                 $this->tableMap();
@@ -138,19 +144,36 @@ class BinlogPacket
                 break;
             case EventType::UPDATE_ROWS_EVENT_V2:
             case EventType::UPDATE_ROWS_EVENT_V1:
+                if (!$this->allowDb($this->schema_name)) {
+                    wing_debug($this->schema_name, 'ignore', 'UPDATE_ROWS_EVENT');
+                    $data = null;
+                    break;
+                }
                 $data = $this->updateRow($event_type, $event_size_without_header);
                 $data["time"] = date("Y-m-d H:i:s", $timestamp);
 
                 break;
             case EventType::WRITE_ROWS_EVENT_V1:
             case EventType::WRITE_ROWS_EVENT_V2:
+                if (!$this->allowDb($this->schema_name)) {
+                    wing_debug($this->schema_name, 'ignore', 'WRITE_ROWS_EVENT');
+                    $data = null;
+                    break;
+                }
+
                 $data = $this->addRow($event_type, $event_size_without_header);
                 $data["time"] = date("Y-m-d H:i:s", $timestamp);
 
                 break;
             case EventType::DELETE_ROWS_EVENT_V1:
             case EventType::DELETE_ROWS_EVENT_V2:
-                $data =  $this->delRow($event_type, $event_size_without_header);
+                if (!$this->allowDb($this->schema_name)) {
+                    wing_debug($this->schema_name, 'ignore', 'DELETE_ROWS_EVENT');
+                    $data = null;
+                    break;
+                }
+
+                $data = $this->delRow($event_type, $event_size_without_header);
                 $data["time"] = date("Y-m-d H:i:s", $timestamp);
 
                 break;
@@ -158,44 +181,57 @@ class BinlogPacket
                 $log_pos = $this->readUint64();
                 $file_name = $this->read($event_size_without_header - 8);
 
-                wing_log('rotate', $file_name.'   '.$log_pos);
+                wing_log('rotate', $file_name . '   ' . $log_pos);
                 Binlog::$forceWriteLogPos = true; //更新日志点
 
                 break;
             case EventType::HEARTBEAT_LOG_EVENT:
-                //心跳检测机制
-                $binlog_name = $this->read($event_size_without_header);
-                wing_debug('HEARTBEAT => ' . $binlog_name.' : '.$log_pos);
-
+                if (WING_DEBUG) {
+                    $binlog_name = $this->read($event_size_without_header);
+                    wing_debug('HEARTBEAT => ' . $binlog_name . ' : ' . $log_pos);
+                }
                 break;
             case EventType::XID_EVENT:
-                wing_debug('XID');
-//                $data =  $this->eventXid();
-//                $data["time"] = date("Y-m-d H:i:s", $timestamp);
+                if (!$this->allowDb($this->schema_name)) {
+                    wing_debug($this->schema_name, 'ignore', 'XID_EVENT');
+                    $data = null;
+                    break;
+                }
+                if (WING_DEBUG) {
+                    $data = $this->eventXid();
+                    $data["time"] = date("Y-m-d H:i:s", $timestamp);
+                    wing_debug('XID', 'time:', $data['time'], 'db:', $data['dbname'], 'xid:', $data['data']);
+                }
                 break;
             case EventType::QUERY_EVENT:
-                $data =  $this->eventQuery($event_size_without_header);
+                $data = $this->eventQuery($event_size_without_header);
                 $data["time"] = date("Y-m-d H:i:s", $timestamp);
 
                 //可能是修改表结构sql 清除数据表缓存
-                if ($this->schema_name && $this->table_name && $this->schema_name==$data['dbname'] && strpos(strtolower($data['data']), strtolower($this->table_name)) !== false) {
+                if ($this->schema_name && $this->table_name && $this->schema_name == $data['dbname'] && strpos(strtolower($data['data']), strtolower($this->table_name)) !== false) {
                     $this->unsetTableMapCache($this->schema_name, $this->table_name);
 
                     #wing_log('query', $data, '['.$this->schema_name.']', '['.$this->table_name.']');
                 }
-                wing_debug("QUERY", $pack);
+                if (!$this->allowDb($data['dbname'])) {
+                    wing_debug($data['dbname'], 'ignore', 'QUERY_EVENT');
+                    $data = null;
+                    break;
+                }
+
+                wing_debug("QUERY", 'time:', $data['time'], 'execution_time:', $data['execution_time'], 'db:', $data['dbname'], 'sql:', $data['data']);
                 break;
             default:
-                #wing_debug("Unknown", $event_type, $pack);
+                wing_debug("Unknown", $event_type, $pack);
                 break;
         }
-/*        if(isset($data["dbname"])){
-            $data["event_size"] = $event_size;
-        }*/
+        /*        if(isset($data["dbname"])){
+                    $data["event_size"] = $event_size;
+                }*/
 
         if (WING_DEBUG) {
-            $msg  = $file_name;
-            $msg .= '-- next pos -> '.$log_pos;
+            $msg = $file_name;
+            $msg .= '-- next pos -> ' . $log_pos;
 
             wing_debug("position", $msg);
         }
@@ -1216,8 +1252,9 @@ class BinlogPacket
 
         $value = [
             "dbname" => $schema,
-            "event"  => "query",
-            "data"   => $query
+            "execution_time" => $executionTime,
+            "event" => "query",
+            "data" => $query
         ];
 
         return $value;

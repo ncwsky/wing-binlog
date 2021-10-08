@@ -295,7 +295,7 @@ if (!function_exists("wing_log")) {
         if ($args_num > 2) {
             $args = func_get_args();
             for ($i = 2; $i < $args_num; $i++) {
-                $log .= "  " . (is_scalar($args[$i]) ? $args[$i] : json_encode($args[$i], JSON_UNESCAPED_UNICODE));
+                $log .= " " . (is_scalar($args[$i]) ? $args[$i] : json_encode($args[$i], JSON_UNESCAPED_UNICODE));
             }
         }
         file_put_contents(HOME."/logs/".$level.".log", $log."\r\n", FILE_APPEND);

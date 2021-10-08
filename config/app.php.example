@@ -7,6 +7,9 @@ return  [
     "slave_server_id" => 9999,
     //重连等待时间
     "retry_connect_sleep" => 6,
+    //do_db【匹配库】、ignore_db【忽略库】二选一 优先判断do_db 使用,分隔
+    "do_db"=>'',
+    "ig_db"=>'',
     //必须配置：mysql
     "mysql" => [
         "db_name"  => "",

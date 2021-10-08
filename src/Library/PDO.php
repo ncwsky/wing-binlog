@@ -148,7 +148,7 @@ class PDO implements IDb
                 $this->hasTableFields = true;
             }
         } catch (\PDOException $e) {
-            wing_log('exception', 'connect fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo);
+            wing_log('error', 'connect fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo);
             if (WING_DEBUG) {
                 echo "mysql连接异常:".__CLASS__."::".__FUNCTION__, $e->errorInfo, PHP_EOL;
             }
@@ -209,7 +209,7 @@ class PDO implements IDb
 
             return $this->statement->execute($parameters);
         } catch (\PDOException $e) {
-            wing_log('exception', 'will retry conn', $e->getFile().':'.$e->getLine(), $e->getMessage());
+            wing_log('error', 'will retry conn', $e->getFile().':'.$e->getLine(), $e->getMessage());
             $this->close();
             $this->connect();
         }
@@ -260,7 +260,7 @@ class PDO implements IDb
                 return $this->statement->rowCount();
             }
         } catch (\PDOException $e) {
-            wing_log('exception', 'query fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
+            wing_log('error', 'query fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
 
             if (WING_DEBUG) {
                 echo "query fail:".__CLASS__."::".__FUNCTION__, $e->errorInfo, PHP_EOL;
@@ -295,7 +295,7 @@ class PDO implements IDb
                 return $result;
             }
         } catch (\PDOException $e) {
-            wing_log('exception', 'query fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
+            wing_log('error', 'query fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
 
             if (WING_DEBUG) {
                 echo "query fail:".__CLASS__."::".__FUNCTION__, $e->errorInfo, PHP_EOL;

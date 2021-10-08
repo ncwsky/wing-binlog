@@ -17,9 +17,13 @@ class Binlog
 {
     const HEARTBEAT = 30;
     /**
-    * @var PDO|IDb $db
+    * @var PDO|IDb
     */
     public static $db;
+    /**
+     * @var BinlogPacket
+     */
+    public $binlogPacket;
 
     /**
     * mysqlbinlog 命令路径
@@ -67,6 +71,7 @@ class Binlog
     {
         $config = load_config("app");
         self::$db  = $db;
+        $this->binlogPacket = new BinlogPacket($config['do_db']??'', $config['ig_db']??'');
         $this->mysql_binlog = "mysqlbinlog";
         if (isset($config["mysqlbinlog"])) {
             $this->mysql_binlog = $config["mysqlbinlog"];
@@ -116,7 +121,7 @@ class Binlog
             $this->registerSlave($config["slave_server_id"]);
         } catch (\Exception $e) {
             wing_debug($e->getMessage());
-            wing_log('exception', 'registerSlave fail', $e->getFile().':'.$e->getLine(), $e->getMessage());
+            wing_log('error', 'registerSlave fail', $e->getFile().':'.$e->getLine(), $e->getMessage());
         }
     }
 
@@ -129,14 +134,13 @@ class Binlog
         \set_error_handler(function($code, $msg, $file, $line){
             wing_log('error', "{$file}:{$line}\t{$msg}");
         });
+        \set_exception_handler(function($e){
+            wing_log('error', $e->getMessage()."\n".'line:'.$e->getLine().', file:'.$e->getFile()."\n".$e->getTraceAsString());
+        });
         $pack = Packet::readPacket(true); // 校验数据包格式 Packet::success($pack);
-        $res = BinlogPacket::parse($pack, $this->checksum);
+        $res = $this->binlogPacket->parse($pack, $this->checksum);
         \restore_error_handler();
-
-        if (!$res) {
-            file_put_contents(HOME.'/logs/null', microtime());
-            return null;
-        }
+        \restore_exception_handler();
 
         list($result, $binlog_file, $last_pos) = $res;
 
