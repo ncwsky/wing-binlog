@@ -52,7 +52,7 @@ class BinlogWorker extends BaseWorker
         $data = $result["data"];
         if($result['event']=='xid') return; //xid事件
         if(!is_array($data)) { //query事件
-            if($data=='BEGIN') return;
+            //if($data=='BEGIN') return;
             $data = [$data];
         }
         foreach ($data as $row) {
