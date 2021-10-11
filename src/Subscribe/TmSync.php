@@ -16,7 +16,7 @@ class TmSync implements ISubscribe
      * @var string $table_name 数据表名称
      */
     protected $table_name;
-
+    protected $time;
     protected $writeTable = ['mch_nodes','module'];
     protected $writeSysTable = ['conf','voice','goods'];
     protected $deleteTable = ['mch_nodes','module'];
@@ -35,10 +35,16 @@ class TmSync implements ISubscribe
             'select'=> $config["select"]??0
         ]);
         $this->queue = $queue;
+        $this->time = time();
     }
 
     public function onchange($result)
     {
+        $time = time();
+        if (($this->time + 10) < $time) {
+            $this->redis->ping();
+            $this->time = $time;
+        }
         //表检测
         $this->table_name = $table = $result['table'] ?? '';
         try{
