@@ -54,7 +54,7 @@ class TmSync implements ISubscribe
                     $sql = $this->_delete($result['data']);
                     break;
                 case 'query':
-                    if($result['data']=='BEGIN' || $result['data']=='COMMIT' || strncmp($result['data'], 'SAVEPOINT', 9)) break;
+                    if($result['data']=='BEGIN' || $result['data']=='COMMIT' || strncmp($result['data'], 'SAVEPOINT', 9)===0) break;
                     $sql = $result['data'];
                     break;
             }
