@@ -32,6 +32,7 @@ class TmSync implements ISubscribe
             'host' => $host,
             'port' => $port,
             'password' => $password,
+            'select'=> $config["select"]??0
         ]);
         $this->queue = $queue;
     }
