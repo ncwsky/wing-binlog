@@ -18,7 +18,7 @@ class TmSync implements ISubscribe
     protected $table_name;
 
     protected $writeTable = ['mch_nodes','module'];
-    protected $writeSysTable = ['conf','voice'];
+    protected $writeSysTable = ['conf','voice','goods'];
     protected $deleteTable = ['mch_nodes','module'];
 
     public function __construct($config)
@@ -54,7 +54,7 @@ class TmSync implements ISubscribe
                     $sql = $this->_delete($result['data']);
                     break;
                 case 'query':
-                    if($result['data']=='BEGIN' || $result['data']=='COMMIT') break;
+                    if($result['data']=='BEGIN' || $result['data']=='COMMIT' || strncmp($result['data'], 'SAVEPOINT', 9)) break;
                     $sql = $result['data'];
                     break;
             }
