@@ -148,7 +148,7 @@ class TmSync implements ISubscribe
     }
 
     //更新记录 $where[str|arr]
-    protected function update_sql($post, $table = '', $where = '')
+    protected function update_sql($table, $post, $where = '')
     {
         $value = '';
         foreach ($post as $k => $v) {
@@ -168,9 +168,9 @@ class TmSync implements ISubscribe
     {
         $sql = '';
         if (in_array($this->table_name, $this->writeTable)) {
-            $sql = $this->add_sql($data, $this->table_name);
+            $sql = $this->add_sql($this->table_name, $data);
         } elseif (in_array($this->table_name, $this->writeSysTable) && $data['mch_id'] == 0) {
-            $sql = $this->add_sql($data, $this->table_name);
+            $sql = $this->add_sql($this->table_name, $data);
         }
         return $sql;
     }
@@ -188,7 +188,7 @@ class TmSync implements ISubscribe
                     unset($data[$k]);
                 }
             }
-            $sql = $this->update_sql($data, $this->table_name, ['id' => $id]);
+            $sql = $this->update_sql($this->table_name, $data, ['id' => $id]);
         }
         return $sql;
     }
