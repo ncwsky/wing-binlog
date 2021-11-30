@@ -1,6 +1,16 @@
 {
     "name": "myphps/wing-binlog",
     "description": "基于mysql数据库binlog的增量订阅&消费，复制于https://github.com/jilieryuyi/wing-binlog.git",
+    "license": "MIT",
+    "keywords": ["binlog"],
+    "homepage": "https://github.com/ncwsky/wing-binlog",
+    "authors": [
+        {
+            "name": "yuyi",
+            "email": "297341015@qq.com",
+            "homepage": "https://github.com/jilieryuyi/wing-binlog.git"
+        }
+    ],
     "require": {
         "php": ">=7.0",
         "ext-bcmath": "*",
