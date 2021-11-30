@@ -8,12 +8,5 @@
         "ext-sockets": "*",
         "ext-curl": "*",
         "myphps/myphp": "^1.6"
-    },
-    "autoload": {
-        "psr-4": {"Wing\\": "src/"},
-        "files": [
-          "src/helpers.php",
-          "src/windows.php"
-        ]
     }
 }
