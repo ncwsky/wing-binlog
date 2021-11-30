@@ -1,0 +1,18 @@
+{
+    "description": "基于mysql数据库binlog的增量订阅&消费，复制于https://github.com/jilieryuyi/wing-binlog.git",
+    "require": {
+        "php": ">=7.0",
+        "ext-bcmath": "*",
+        "ext-json": "*",
+        "ext-sockets": "*",
+        "ext-curl": "*",
+        "myphps/myphp": "^1.6"
+    },
+    "autoload": {
+        "psr-4": {"Wing\\": "src/"},
+        "files": [
+          "src/helpers.php",
+          "src/windows.php"
+        ]
+    }
+}
