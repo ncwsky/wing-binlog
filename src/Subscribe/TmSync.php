@@ -17,7 +17,7 @@ class TmSync implements ISubscribe
      */
     protected $table_name;
     protected $time;
-    protected $writeTable = ['mch_nodes','module','module_relate'];
+    protected $writeTable = ['mch_nodes','module'];
     protected $writeSysTable = ['conf','voice','goods'];
     protected $deleteTable = ['mch_nodes','module'];
 
