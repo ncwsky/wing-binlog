@@ -46,9 +46,9 @@ class Db implements ISubscribe
         if($chain_id==0) {
             if(isset($chainMap[$mch_id])) return $chainMap[$mch_id];
 
-            $chain_id = (int)$this->db->getCustomId('yx_tm.merchant', 'chain_id', 'id='.$mch_id);
+            $chain_id = (int)db('master')->getCustomId('yx.merchant', 'chain_id', 'id='.$mch_id);
         }
-        $type = (int)$this->db->getCustomId('yx_tm.merchant', 'type', 'id='.$chain_id);
+        $type = (int)db('master')->getCustomId('yx.merchant', 'type', 'id='.$chain_id);
         if($type!=99) $chain_id = 0; //不是tm
 
         if(!isset($chainMap[$mch_id]) || $chainMap[$mch_id]!=$chain_id) {
