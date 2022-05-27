@@ -1,6 +1,5 @@
 <?php namespace Wing\Cache;
 use Wing\Library\ICache;
-use Wing\FileSystem\WDir;
 
 /**
  * Created by PhpStorm.
@@ -14,17 +13,13 @@ class File implements ICache
     public function __construct($cache_dir = HOME."/process_cache")
     {
         if ($cache_dir) {
-            $dir = str_replace("\\","/",$cache_dir);
-            $dir = rtrim($dir,"/");
+            $this->cache_dir = str_replace("\\", "/", $cache_dir);
+            $this->cache_dir = rtrim($this->cache_dir, "/");
         }
-        else
-            $dir = $this->cache_dir;
 
-        $this->cache_dir = $dir;
-
-        $dir = new WDir($this->cache_dir);
-        $dir->mkdir();
-        unset($dir);
+        if (!is_dir($this->cache_dir)) {
+            mkdir($this->cache_dir, 0777, true);
+        }
     }
     public function set($key, $value, $timeout = 0)
     {
@@ -86,8 +81,18 @@ class File implements ICache
 
     public function keys($p = ".*")
     {
-        $dir   = new WDir($this->cache_dir);
-        $files = $dir->scandir();
+        $path[] = $this->cache_dir.'/*';
+        $files  = [];
+        while (count($path) != 0) {
+            $v = array_shift($path);
+            foreach(glob($v) as $item) {
+                if (is_dir($item)) {
+                    $path[] = $item . '/*';
+                } elseif (is_file($item)) {
+                    $files[] = $item;
+                }
+            }
+        }
 
         $keys = [];
         foreach ($files as $file) {

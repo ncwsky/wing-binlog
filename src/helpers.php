@@ -102,8 +102,12 @@ if (!function_exists("reset_std")) {
         }
         global $STDOUT, $STDERR;
         $file       = HOME."/logs/wing.log";
-        $obj_file   = new \Wing\FileSystem\WFile($file);
-        $obj_file->touch();
+        if (!file_exists($file)) {
+            if (!is_dir(dirname($file))) {
+                mkdir(dirname($file), 0777, true);
+            }
+            touch($file);
+        }
         @fclose(STDOUT);
         @fclose(STDERR);
         $STDOUT = fopen($file, "a+");
@@ -142,9 +146,7 @@ if (!function_exists("try_lock")) {
     {
         $dir = HOME."/cache/lock";
         if (!is_dir($dir)) {
-            $obj_dir = new \Wing\FileSystem\WDir($dir);
-            $obj_dir->mkdir();
-            unset($obj_dir);
+            mkdir($dir, 0777, true);
         }
         $file = $dir."/".md5($key);
         if (file_exists($file)) {
@@ -165,9 +167,7 @@ if (!function_exists("lock_free")) {
     {
         $dir = HOME."/cache/lock";
         if (!is_dir($dir)) {
-            $obj_dir = new \Wing\FileSystem\WDir($dir);
-            $obj_dir->mkdir();
-            unset($obj_dir);
+            mkdir($dir, 0777, true);
         }
         $file = $dir."/".md5($key);
         if (!file_exists($file)) {
