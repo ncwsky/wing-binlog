@@ -11,7 +11,7 @@ use Wing\Library\IRedis;
 class Redis implements ICache
 {
     private $redis;
-    public function __construct(IRedis $redis)
+    public function __construct($redis)
     {
         $this->redis = $redis;
     }
