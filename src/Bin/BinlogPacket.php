@@ -83,6 +83,11 @@ class BinlogPacket
         }
     }
 
+    /**
+     * 允许的库名判断
+     * @param $db_name
+     * @return bool
+     */
     protected function allowDb($db_name)
     {
         $db_name = ',' . $db_name . ',';
@@ -118,14 +123,14 @@ class BinlogPacket
 
         $timestamp = unpack('V', $this->read(4))[1];
         $event_type = unpack('C', $this->read(1))[1];
-        $server_id = unpack('V', $this->read(4))[1];
+        $this->read(4); //$server_id = unpack('V', $this->read(4))[1];
 
         #wing_debug("server id = ",$server_id);
 
         $event_size = unpack('V', $this->read(4))[1];
         //position of the next event
         $log_pos = unpack('V', $this->read(4))[1];
-        $flags = unpack('v', $this->read(2))[1];
+        $this->read(2); //$flags = unpack('v', $this->read(2))[1];
 
         //排除事件头Event Head的事件大小
         $event_size_without_header = $check_sum === true ? ($event_size - 23) : $event_size - 19;
@@ -149,6 +154,7 @@ class BinlogPacket
                     $data = null;
                     break;
                 }
+
                 $data = $this->updateRow($event_type, $event_size_without_header);
                 $data["time"] = date("Y-m-d H:i:s", $timestamp);
 
@@ -205,18 +211,18 @@ class BinlogPacket
                 break;
             case EventType::QUERY_EVENT:
                 $data = $this->eventQuery($event_size_without_header);
-                $data["time"] = date("Y-m-d H:i:s", $timestamp);
 
-                //可能是修改表结构sql 清除数据表缓存
-                if ($this->schema_name && $this->table_name && $this->schema_name == $data['dbname'] && strpos(strtolower($data['data']), strtolower($this->table_name)) !== false) {
-                    $this->unsetTableMapCache($this->schema_name, $this->table_name);
-
-                    #wing_log('query', $data, '['.$this->schema_name.']', '['.$this->table_name.']');
-                }
                 if (!$this->allowDb($data['dbname'])) {
                     wing_debug($data['dbname'], 'ignore', 'QUERY_EVENT');
                     $data = null;
                     break;
+                }
+
+                $data["time"] = date("Y-m-d H:i:s", $timestamp);
+                //可能是修改表结构sql 清除数据表缓存
+                if ($this->schema_name && $this->table_name && $this->schema_name == $data['dbname'] && strpos(strtolower($data['data']), strtolower($this->table_name)) !== false) {
+                    $this->unsetTableMapCache($this->schema_name, $this->table_name);
+                    #wing_log('query', $data, '['.$this->schema_name.']', '['.$this->table_name.']');
                 }
 
                 wing_debug("QUERY", 'time:', $data['time'], 'execution_time:', $data['execution_time'], 'db:', $data['dbname'], 'sql:', $data['data']);
@@ -457,6 +463,21 @@ class BinlogPacket
         return $this->read($this->readUintBySize($size));
     }
 
+    // Read a variable length string where the first 1-5 bytes stores the length of the string.
+    // For each byte, the first bit being high indicates another byte must be  read.
+    public function read_variable_length_string(){
+        $byte = 0x80;
+        $length = 0;
+        $bits_read = 0;
+        while (($byte & 0x80) != 0){
+            $byte = unpack('C', $this->read(1))[1];
+            $length = $length | (($byte & 0x7f) << $bits_read);
+            $bits_read = $bits_read + 7;
+        }
+
+        return $this->read($length);
+    }
+
     //读取大端序
     public function readIntBeBySize($size)
     {
@@ -556,7 +577,6 @@ class BinlogPacket
 
         //$flags       = unpack('S', $this->read(2))[1];
         $schema_length = unpack("C", $this->read(1))[1];
-
         // 数据库名称
         $this->schema_name = $this->read($schema_length);
         // 00
@@ -564,6 +584,15 @@ class BinlogPacket
 
         $table_length     = unpack("C", $this->read(1))[1];
         $this->table_name = $this->read($table_length); //数据表名称
+
+        if (!$this->allowDb($this->schema_name)) {
+            wing_debug($this->schema_name, 'ignore', 'TABLE_MAP_EVENT');
+            return [
+                'schema_name'=> $this->schema_name,
+                'table_name' => $this->table_name,
+                'table_id'   => $table_id
+            ];
+        }
 
         //00
         $this->advance(1);
@@ -1114,7 +1143,8 @@ class BinlogPacket
                 $values[$name] = $this->_readString($column['length_size'], $column);
             }
             else if($column['type'] == FieldType::JSON) { //当字符串处理
-                $values[$name] = $this->_readString($column['length_size'], $column);
+                //$values[$name] = $this->_readString($column['length_size'], $column);
+                $values[$name] = $this->read_binary_json($column['length_size']);
             }
 
             $nullBitmapIndex += 1;
@@ -1125,8 +1155,8 @@ class BinlogPacket
 
     public function addRow($event_type, $size)
     {
-        //$table_id =
-        $this->readTableId();
+        // table_id
+        $this->read(6);
 
         if (in_array($event_type, [
             EventType::DELETE_ROWS_EVENT_V2,
@@ -1152,19 +1182,18 @@ class BinlogPacket
             $rows[] = $this->columnFormat($bitmap);
         }
 
-        $value = [
+        return [
             "dbname" => $this->schema_name,
             "table"  => $this->table_name,
             "event"  => "write_rows",
             "data"   => $rows
         ];
-        return $value;
     }
 
     public function delRow($event_type, $size)
     {
-        //$table_id =
-        $this->readTableId();
+        // table_id
+        $this->read(6);
 
         if (in_array($event_type, [
             EventType::DELETE_ROWS_EVENT_V2,
@@ -1190,19 +1219,18 @@ class BinlogPacket
             $rows[] = $this->columnFormat($bitmap);
         }
 
-        $value = [
+        return [
             "dbname" => $this->schema_name,
             "table"  => $this->table_name,
             "event"  => "delete_rows",
             "data"   => $rows
         ];
-        return $value;
     }
 
     public function updateRow($event_type, $size)
     {
-        $table_id =$this->readTableId(); //6
-        $this->read(2); #$flags
+        $this->read(6); // 仅读不解析table_id, $table_id = $this->readTableId();
+        $this->read(2); // $flags
 
         if (in_array($event_type, [
             EventType::DELETE_ROWS_EVENT_V2,
@@ -1227,14 +1255,12 @@ class BinlogPacket
             ];
         }
 
-        $value = [
+        return [
             "dbname" => $this->schema_name,
             "table"  => $this->table_name,
             "event"  => "update_rows",
             "data"   => $rows
         ];
-
-        return $value;
     }
 
     public function eventQuery($event_size_without_header)
@@ -1319,5 +1345,158 @@ class BinlogPacket
         }
 
         return $t;
+    }
+
+    private function read_offset_or_inline($large){
+        $t = $this->readUint8();
+
+        if (in_array($t, [Column::JSONB_TYPE_LITERAL, Column::JSONB_TYPE_INT16, Column::JSONB_TYPE_UINT16]))
+            return [$t, null, $this->read_binary_json_type_inlined($t, $large)];
+        if ($large && in_array($t, [Column::JSONB_TYPE_INT32, Column::JSONB_TYPE_UINT32]))
+            return [$t, null, $this->read_binary_json_type_inlined($t, $large)];
+/*
+        if($large)
+            return [$t, $this->readUint32(), null];
+        return [$t, $this->readUint16(), null];*/
+        return [$t, $large ? $this->readUint32() : $this->readUint16(), null];
+    }
+
+    private function read_binary_json($size){
+        $length = $this->readUintBySize($size);
+        if ($length == 0) return null;
+        $payload = $this->read($length);
+        $this->unread($payload);
+        $t = $this->readUint8();
+
+        return $this->read_binary_json_type($t, $length);
+    }
+
+    private function read_binary_json_type($t, $length){
+        $large = in_array($t, [Column::JSONB_TYPE_LARGE_OBJECT, Column::JSONB_TYPE_LARGE_ARRAY]);
+        if(in_array($t, [Column::JSONB_TYPE_SMALL_OBJECT, Column::JSONB_TYPE_LARGE_OBJECT]))
+            return $this->read_binary_json_object($length - 1, $large);
+        elseif(in_array($t,[Column::JSONB_TYPE_SMALL_ARRAY, Column::JSONB_TYPE_LARGE_ARRAY]))
+            return $this->read_binary_json_array($length - 1, $large);
+        elseif($t==Column::JSONB_TYPE_STRING)
+            return $this->read_variable_length_string();
+        elseif($t==Column::JSONB_TYPE_LITERAL){
+            $value = $this->readUint8();
+            if ($value == Column::JSONB_LITERAL_NULL)
+                return null;
+            elseif ($value == Column::JSONB_LITERAL_TRUE)
+                return true;
+            elseif ($value == Column::JSONB_LITERAL_FALSE)
+                return false;
+        }
+        elseif ($t == Column::JSONB_TYPE_INT16)
+            return $this->readInt16();
+        elseif ($t == Column::JSONB_TYPE_UINT16)
+            return $this->readUint16();
+        elseif($t==Column::JSONB_TYPE_DOUBLE)
+            return unpack('d', $this->read(8))[0]; //<d小端双精度
+        elseif ($t == Column::JSONB_TYPE_INT32)
+            return $this->readInt32();
+        elseif ($t == Column::JSONB_TYPE_UINT32)
+            return $this->readUint32();
+        elseif ($t == Column::JSONB_TYPE_INT64)
+            return $this->readInt64();
+        elseif ($t == Column::JSONB_TYPE_UINT64)
+            return $this->readUint64();
+
+        throw new \Exception('Json type '.$t.' is not handled'); //ValueError
+    }
+
+    private function read_binary_json_type_inlined($t, $large){
+        if ($t == Column::JSONB_TYPE_LITERAL) {
+            $value = $large ? $this->readUint32() : $this->readUint16();
+            if ($value == Column::JSONB_LITERAL_NULL)
+                return null;
+            elseif ($value == Column::JSONB_LITERAL_TRUE)
+                return true;
+            elseif ($value == Column::JSONB_LITERAL_FALSE)
+                return false;
+        }
+        elseif ($t == Column::JSONB_TYPE_INT16)
+            return $large ? $this->readInt32() : $this->readInt16();
+        elseif ($t == Column::JSONB_TYPE_UINT16)
+            return $large ? $this->readUint32() : $this->readUint16();
+        elseif ($t == Column::JSONB_TYPE_INT32)
+            return $this->readInt32();
+        elseif ($t == Column::JSONB_TYPE_UINT32)
+            return $this->readUint32();
+
+        throw new \Exception('Json type ' . $t . ' is not handled'); //ValueError
+    }
+
+    private function read_binary_json_object($length, $large){
+        if ($large){
+            $elements = $this->readUint32();
+            $size = $this->readUint32();
+        }else{
+            $elements = $this->readUint16();
+            $size = $this->readUint16();
+        }
+
+        if ($size > $length)
+            throw new \Exception('Json length is larger than packet length('.$size.'>'.$length.', large:'.$large.', elements:'.$elements.')'); //ValueError
+
+        $key_offset_lengths = new \SplFixedArray($elements);
+        if ($large) {
+            for ($i = 0; $i < $elements; $i++) {
+                //[offset (we don't actually need that), size of the key]
+                $key_offset_lengths[$i] = [$this->readUint32(), $this->readUint16()];
+            }
+        } else {
+            for ($i = 0; $i < $elements; $i++) {
+                //[offset (we don't actually need that), size of the key]
+                $key_offset_lengths[$i] = [$this->readUint16(), $this->readUint16()];
+            }
+        }
+
+        $value_type_inlined_lengths = new \SplFixedArray($elements);
+        for ($i = 0; $i < $elements; $i++) {
+            $value_type_inlined_lengths[$i] = $this->read_offset_or_inline($large);
+        }
+
+        $keys = new \SplFixedArray($elements);
+        foreach ($key_offset_lengths as $i=>$x){
+            $keys[$i] = $this->read($x[1]);
+        }
+
+        $out = [];
+        for ($i = 0; $i < $elements; $i++) {
+            if ($value_type_inlined_lengths[$i][1] === null){
+                $data = $value_type_inlined_lengths[$i][2];
+            }else{
+                $t = $value_type_inlined_lengths[$i][0];
+                $data = $this->read_binary_json_type($t, $length);
+            }
+            $out[$keys[$i]] = $data;
+        }
+
+        return $out;
+    }
+
+    private function read_binary_json_array($length, $large){
+        if ($large){
+            $elements = $this->readUint32();
+            $size = $this->readUint32();
+        }else{
+            $elements = $this->readUint16();
+            $size = $this->readUint16();
+        }
+        if ($size > $length)
+            throw new \Exception('Json length is larger than packet length('.$size.'>'.$length.', large:'.$large.', elements:'.$elements.')'); //ValueError
+
+        $values_type_offset_inline = new \SplFixedArray($elements);
+        for ($i = 0; $i < $elements; $i++) {
+            $values_type_offset_inline[$i] = $this->read_offset_or_inline($large);
+        }
+
+        $out = new \SplFixedArray($elements);
+        foreach ($values_type_offset_inline as $i=>$x){
+            $out[$i] = $x[1]===null ? $x[2] : $this->read_binary_json_type($x[0], $length);
+        }
+        return $out;
     }
 }

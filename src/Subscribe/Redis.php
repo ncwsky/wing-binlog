@@ -46,5 +46,9 @@ class Redis implements ISubscribe
 
         #if($result['event']=='query') return;
         $this->redis->rpush($this->queue, json_encode($result));
+        $len = $this->redis->llen($this->queue);
+        if ($len > 200) { //test
+            $this->redis->ltrim($this->queue, -100, -1);
+        }
 	}
 }

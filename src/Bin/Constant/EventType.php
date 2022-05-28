@@ -55,7 +55,7 @@ class EventType
 	const UPDATE_ROWS_EVENT_V2 		= 31; #0x1f;
 	const DELETE_ROWS_EVENT_V2 		= 32; #0x20;
 
-    const GTID_LOG_EVENT			= 33; #0x21;
-    const ANONYMOUS_GTID_LOG_EVENT	= 34; #0x22;
-    const PREVIOUS_GTIDS_LOG_EVENT	= 35; #0x23;
+    const GTID_LOG_EVENT			= 33; #0x21; // GTID事务
+    const ANONYMOUS_GTID_LOG_EVENT	= 34; #0x22; // 匿名事务
+    const PREVIOUS_GTIDS_LOG_EVENT	= 35; #0x23; //用于表示上一个binlog最后一个gitd的位置，每个binlog只有一个
 }
