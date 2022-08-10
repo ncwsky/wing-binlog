@@ -55,7 +55,7 @@ class TmSync implements ISubscribe
         $url = $this->indexUrl . '/api' . $url;
         $url .= (strpos($url, '?') ? '&' : '?') . 'database=' . $db;
         $post = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $json = \Http::doPost($url, $post, 10, $header);
+        $json = \Http::doPost($url, $post, 3, $header);
         if ($this->indexLog) {
             wing_log('index', 'url:'.$url . "\n".'post:'.$post."\n". 'ret:'. ($json===false?'false':$json));
         }
@@ -231,12 +231,16 @@ class TmSync implements ISubscribe
     protected function _update($data, $old)
     {
         if ($this->table_name == 'goods') {
-            if ($data['is_del']) {
+            if ($data['is_del'] && $data['is_del']!=$old['is_del']) {
                 // curl remove index $data['id'];
                 $this->indexDel($data);
             } else {
                 // curl edit index $data['id'];
-                $this->indexSave($data);
+                $new = $data['letter'].' '.$data['name'].($data['sub_name']?' '.$data['sub_name']:'');
+                $old = $old['letter'].' '.$old['name'].($old['sub_name']?' '.$old['sub_name']:'');
+                if ($new != $old || $data['pic'] != $old['pic']) {
+                    $this->indexSave($data);
+                }
             }
         }
 
