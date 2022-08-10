@@ -11,15 +11,17 @@ class TmSync implements ISubscribe
 {
     private $redis;
     private $queue;
+    private $indexUrl;
+    private $indexLog=false;
 
     /**
      * @var string $table_name 数据表名称
      */
-    protected $table_name;
-    protected $time;
-    protected $writeTable = ['mch_nodes','module'];
-    protected $writeSysTable = ['conf','voice','goods'];
-    protected $deleteTable = ['mch_nodes','module'];
+    private $table_name;
+    private $time;
+    private $writeTable = ['mch_nodes','module'];
+    private $writeSysTable = ['conf','voice','goods'];
+    private $deleteTable = ['mch_nodes','module'];
 
     public function __construct($config)
     {
@@ -35,7 +37,46 @@ class TmSync implements ISubscribe
             'select'=> $config["select"]??0
         ]);
         $this->queue = $queue;
+        $this->indexUrl = $config["index_url"]??'';
+        $this->indexLog = $config["index_log"]??false;
         $this->time = time();
+    }
+
+    private function _indexPost($url, $db, $data)
+    {
+        if(!$this->indexUrl) return;
+        $url = $this->indexUrl . '/api' . $url;
+        $url .= (strpos($url, '?') ? '&' : '?') . 'database=' . $db;
+        $post = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $json = \Http::doPost($url, $post, 10, 'Content-Type:application/json');
+        if ($this->indexLog) {
+            wing_log('index', 'url:'.$url . "\n".'post:'.$post."\n". 'ret:'. ($json===false?'false':$json));
+        }
+        //if ($json === false) return false;
+        //return json_decode($json, true);
+    }
+
+    public function indexDb($type){
+        if($type==0) return 'goods_0';
+        elseif($type==1) return 'goods_1';
+        elseif(in_array($type,[2,3,5,6,7,10,11])) return 'goods_2';
+        return false;
+    }
+    public function indexSave(&$data)
+    {
+        $id = (int)$data['id'];
+        $ext = ['name'=>$data['name'],'pic'=>$data['pic']];
+        if($data['specs']) $ext['specs'] = $data['specs'];
+        if($data['tag_name']) $ext['tag_name'] = $data['tag_name'];
+        $text = $data['letter'].' '.$data['name'].($data['sub_name']?' '.$data['sub_name']:'');
+        $db = $this->indexDb($data['type']);
+        if(!$db) return;
+        $this->_indexPost('/index', $db, ['id' => $id, 'text' => $text, 'document' => $ext]);
+    }
+    public function indexDel(&$data){
+        $db = $this->indexDb($data['type']);
+        if(!$db) return;
+        $this->_indexPost('/index/remove', $db, ['id' => (int)$data['id']]);
     }
 
     public function onchange($result)
@@ -166,6 +207,11 @@ class TmSync implements ISubscribe
 
     protected function _write($data)
     {
+        if ($this->table_name == 'goods') {
+            // curl add index $data['id'];
+            $this->indexSave($data);
+        }
+
         $sql = '';
         if (in_array($this->table_name, $this->writeTable)) {
             $sql = $this->add_sql($this->table_name, $data);
@@ -177,6 +223,16 @@ class TmSync implements ISubscribe
 
     protected function _update($data, $old)
     {
+        if ($this->table_name == 'goods') {
+            if ($data['is_del']) {
+                // curl remove index $data['id'];
+                $this->indexDel($data);
+            } else {
+                // curl edit index $data['id'];
+                $this->indexSave($data);
+            }
+        }
+
         $sql = '';
         if (in_array($this->table_name, $this->writeTable) || (in_array($this->table_name, $this->writeSysTable) && $data['mch_id'] == 0)) {
             $id = 0;
@@ -195,6 +251,11 @@ class TmSync implements ISubscribe
 
     protected function _delete($data)
     {
+        if ($this->table_name == 'goods') {
+            // curl remove index $data['id'];
+            $this->indexDel($data);
+        }
+
         $sql = '';
         if (!empty($data['id']) && in_array($this->table_name, $this->deleteTable)) {
             $sql = "DELETE FROM {$this->table_name} WHERE id={$data['id']}";
