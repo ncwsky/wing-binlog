@@ -236,9 +236,9 @@ class TmSync implements ISubscribe
                 $this->indexDel($data);
             } else {
                 // curl edit index $data['id'];
-                $new = $data['letter'].' '.$data['name'].($data['sub_name']?' '.$data['sub_name']:'');
-                $old = $old['letter'].' '.$old['name'].($old['sub_name']?' '.$old['sub_name']:'');
-                if ($new != $old || $data['pic'] != $old['pic']) {
+                $txt1 = $data['letter'].' '.$data['name'].($data['sub_name']?' '.$data['sub_name']:'');
+                $txt2 = $old['letter'].' '.$old['name'].($old['sub_name']?' '.$old['sub_name']:'');
+                if ($txt1 != $txt2 || $data['pic'] != $old['pic']) {
                     $this->indexSave($data);
                 }
             }
