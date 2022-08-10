@@ -13,6 +13,7 @@ class TmSync implements ISubscribe
     private $queue;
     private $indexUrl;
     private $indexLog=false;
+    protected $indexAuth='';
 
     /**
      * @var string $table_name 数据表名称
@@ -27,7 +28,7 @@ class TmSync implements ISubscribe
     {
         require_once(HOME . '/config/conf.php');
         require_once(HOME . '/vendor/myphps/myphp/base.php');
-        
+
         $host = $config["host"];
         $port = $config["port"];
         $password = $config["password"];
@@ -42,16 +43,19 @@ class TmSync implements ISubscribe
         $this->queue = $queue;
         $this->indexUrl = $config["index_url"]??'';
         $this->indexLog = $config["index_log"]??false;
+        $this->indexAuth = $config["index_auth"]??'';
         $this->time = time();
     }
 
     private function _indexPost($url, $db, $data)
     {
         if(!$this->indexUrl) return;
+        $header = 'Content-Type:application/json';
+        if($this->indexAuth) $header .= "\r\nAuthorization:Basic ".base64_encode($this->indexAuth);
         $url = $this->indexUrl . '/api' . $url;
         $url .= (strpos($url, '?') ? '&' : '?') . 'database=' . $db;
         $post = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $json = \Http::doPost($url, $post, 10, 'Content-Type:application/json');
+        $json = \Http::doPost($url, $post, 10, $header);
         if ($this->indexLog) {
             wing_log('index', 'url:'.$url . "\n".'post:'.$post."\n". 'ret:'. ($json===false?'false':$json));
         }
