@@ -25,6 +25,9 @@ class TmSync implements ISubscribe
 
     public function __construct($config)
     {
+        require_once(HOME . '/config/conf.php');
+        require_once(HOME . '/vendor/myphps/myphp/base.php');
+        
         $host = $config["host"];
         $port = $config["port"];
         $password = $config["password"];
