@@ -8,7 +8,8 @@
         "php": ">=7.0",
         "ext-bcmath": "*",
         "ext-json": "*",
-        "ext-curl": "*"
+        "ext-curl": "*",
+        "myphps/myphp": "^2.6"
     },
     "autoload": {
         "psr-4": {"Wing\\": "src/"},
