@@ -9,8 +9,8 @@ use Wing\Library\ICache;
  */
 class File implements ICache
 {
-    protected $cache_dir = HOME."/process_cache";
-    public function __construct($cache_dir = HOME."/process_cache")
+    protected $cache_dir = CACHE_DIR;
+    public function __construct($cache_dir = CACHE_DIR)
     {
         if ($cache_dir) {
             $this->cache_dir = str_replace("\\", "/", $cache_dir);

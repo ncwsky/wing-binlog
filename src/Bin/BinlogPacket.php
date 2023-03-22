@@ -47,10 +47,10 @@ class BinlogPacket
      * table_map 缓存文件
      * @var string
      */
-    protected $table_map_file = HOME . '/cache/table_map.json';
+    protected $table_map_file = CACHE_DIR . '/table_map.json';
 
-    //do_db【匹配库】、ignore_db【忽略库】二选一 优先判断do_db 使用,分隔
-    protected $do_db = '';
+    //sync_db【同步库】、ignore_db【忽略库】二选一 优先判断sync_db 使用,分隔
+    protected $sync_db = '';
     protected $ig_db = '';
 
     public static $bitCountInByte = [
@@ -72,10 +72,15 @@ class BinlogPacket
         4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
     ];
 
-    public function __construct($do_db='', $ig_db='')
+    public function __construct($sync_db='')
     {
-        if ($do_db !== '') $this->do_db = ',' . $do_db . ',';
-        if ($ig_db !== '') $this->ig_db = ',' . $ig_db . ',';
+        if ($sync_db) {
+            if ($sync_db[0] == '!') {
+                $this->ig_db = ',' . substr($sync_db, 1) . ',';
+            } else {
+                $this->sync_db = ',' . $sync_db . ',';
+            }
+        }
         //读取table_map缓存
         if (is_file($this->table_map_file)) {
             $this->table_map = json_decode(file_get_contents($this->table_map_file), true);
@@ -91,8 +96,8 @@ class BinlogPacket
     protected function allowDb($db_name)
     {
         $db_name = ',' . $db_name . ',';
-        if ($this->do_db !== '') {
-            return strpos($this->do_db, $db_name) !== false;
+        if ($this->sync_db !== '') {
+            return strpos($this->sync_db, $db_name) !== false;
         }
         if ($this->ig_db !== '') {
             return strpos($this->ig_db, $db_name) === false;
@@ -114,6 +119,7 @@ class BinlogPacket
 
         if (strlen($pack) < 20) { //公有事件头 ok[1]+固定[19]字节
             goto end;
+            //return [$data, $file_name, $log_pos];
         }
 
         $this->packet = $pack;
@@ -140,12 +146,12 @@ class BinlogPacket
                 $binlog_version = $this->readInt16();
                 $mysql_version = $this->read(50);
                 $create_timestamp = $this->readInt32();
-                wing_debug('FORMAT_DESCRIPTION_EVENT', 'ServerVer:', $mysql_version, 'BinlogVer:', $binlog_version, 'CreateTimestamp:', $create_timestamp);
+                wing_echo('FORMAT_DESCRIPTION_EVENT', 'ServerVer:', $mysql_version, 'BinlogVer:', $binlog_version, 'CreateTimestamp:', $create_timestamp);
                 break;
-            // 映射fileds相关信息
+            // 映射fields相关信息
             case EventType::TABLE_MAP_EVENT:
-                $this->tableMap();
-
+                $tableMap = $this->tableMap();
+                wing_debug($tableMap);
                 break;
             case EventType::UPDATE_ROWS_EVENT_V2:
             case EventType::UPDATE_ROWS_EVENT_V1:
@@ -217,23 +223,36 @@ class BinlogPacket
                     $data = null;
                     break;
                 }
-
                 $data["time"] = date("Y-m-d H:i:s", $timestamp);
+
                 //可能是修改表结构sql 清除数据表缓存
                 if ($this->schema_name && $this->table_name && $this->schema_name == $data['dbname'] && strpos(strtolower($data['data']), strtolower($this->table_name)) !== false) {
                     $this->unsetTableMapCache($this->schema_name, $this->table_name);
                     #wing_log('query', $data, '['.$this->schema_name.']', '['.$this->table_name.']');
                 }
 
-                wing_debug("QUERY", 'time:', $data['time'], 'execution_time:', $data['execution_time'], 'db:', $data['dbname'], 'sql:', $data['data']);
+                if ($data['data'] == 'BEGIN' || $data['data'] == 'COMMIT' || strncmp($data['data'], 'SAVEPOINT', 9) === 0) {
+                    break;
+                } else {
+                    wing_echo("QUERY", 'time:', $data['time'], 'execution_time:', $data['execution_time'], 'db:', $data['dbname'], 'sql:', $data['data']);
+                }
+                break;
+            case EventType::GTID_LOG_EVENT: //GTID事务
+                //todo 解析
+                wing_debug('GTID', 'time:', date("Y-m-d H:i:s", $timestamp));
+                break;
+            case EventType::ANONYMOUS_GTID_LOG_EVENT: //匿名事务
+                //todo 解析
+                wing_debug('ANONYMOUS', 'time:', date("Y-m-d H:i:s", $timestamp));
                 break;
             default:
-                wing_debug("Unknown", $event_type, $pack);
+                wing_echo("Unknown", $event_type, $pack);
                 break;
         }
-        /*        if(isset($data["dbname"])){
-                    $data["event_size"] = $event_size;
-                }*/
+        /*
+        if(isset($data["dbname"])){
+            $data["event_size"] = $event_size;
+        }*/
 
         if (WING_DEBUG) {
             $msg = $file_name;
@@ -560,7 +579,7 @@ class BinlogPacket
     */
     protected function unsetTableMapCache($schema_name, $table_name)
     {
-        wing_debug('del_table_map:'.$table_name);
+        wing_echo('del_table_map:'.$table_name);
         unset($this->table_map[$schema_name][$table_name]);
     }
 

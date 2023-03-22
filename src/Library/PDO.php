@@ -39,12 +39,10 @@ class PDO implements IDb
      */
     public function __construct()
     {
-        $config = load_config("app");
+        $config = load_config(WING_CONFIG);
 
         if (!is_array($config)) {
-            if (WING_DEBUG) {
-                wing_debug("数据库配置错误");
-            }
+            wing_echo("数据库配置错误");
             exit;
         }
 
@@ -148,10 +146,9 @@ class PDO implements IDb
                 $this->hasTableFields = true;
             }
         } catch (\PDOException $e) {
-            wing_log('error', 'connect fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo);
-            if (WING_DEBUG) {
-                echo "mysql连接异常:".__CLASS__."::".__FUNCTION__, $e->errorInfo, PHP_EOL;
-            }
+            wing_log('error', 'connect fail', $e->getFile() . ':' . $e->getLine(), $e->getMessage(), $e->errorInfo);
+            wing_echo("mysql连接异常:" . $e->getMessage(), is_array($e->errorInfo) ? implode('|', $e->errorInfo) : $e->errorInfo);
+            wing_echo($dsn, $this->user, $this->password);
 
             sleep(5);
             $this->connect();
@@ -262,9 +259,7 @@ class PDO implements IDb
         } catch (\PDOException $e) {
             wing_log('error', 'query fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
 
-            if (WING_DEBUG) {
-                echo "query fail:".__CLASS__."::".__FUNCTION__, $e->errorInfo, PHP_EOL;
-            }
+            wing_echo("query fail:" . $e->getMessage(), is_array($e->errorInfo) ? implode('|', $e->errorInfo) : $e->errorInfo);
 
             $this->close();
             $this->connect();
@@ -297,9 +292,7 @@ class PDO implements IDb
         } catch (\PDOException $e) {
             wing_log('error', 'query fail', $e->getFile().':'.$e->getLine(), $e->getMessage(), $e->errorInfo, $e->getTraceAsString());
 
-            if (WING_DEBUG) {
-                echo "query fail:".__CLASS__."::".__FUNCTION__, $e->errorInfo, PHP_EOL;
-            }
+            wing_echo("query fail:" . $e->getMessage(), is_array($e->errorInfo) ? implode('|', $e->errorInfo) : $e->errorInfo);
 
             $this->close();
             $this->connect();

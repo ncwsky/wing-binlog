@@ -178,7 +178,7 @@ class Packet
      */
     public static function registerSlave($slave_server_id, $master_id=0)
     {
-        $config = load_config("app");
+        $config = load_config(WING_CONFIG);
         $slave_hostname = gethostname();
         $slave_user = $config["mysql"]["user"];
         $slave_password = $config["mysql"]["password"];

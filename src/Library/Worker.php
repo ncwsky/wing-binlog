@@ -1,4 +1,5 @@
-<?php namespace Wing\Library;
+<?php
+namespace Wing\Library;
 
 use Wing\Library\Workers\BaseWorker;
 use Wing\Library\Workers\BinlogWorker;
@@ -12,18 +13,17 @@ use Wing\Library\Workers\BinlogWorker;
  */
 class Worker
 {
-    const VERSION = "2.2.0";
+    const VERSION = "3.0.0";
 
+    public static $pidFile = '';
     //父进程相关配置
     private $daemon = false;
-    private $workers = 2;
-    private static $pid = null;
     private $normal_stop = false;
 
     //子进程相关信息
     private $event_process_id = 0;
     private $processes = [];
-    private $start_time = null;
+    private $start_time = '';
     private $exit_times = 0; //子进程退出次数
 
     /**
@@ -32,25 +32,23 @@ class Worker
      * @param array $params 进程参数
      */
     public function __construct($params = [
-        "daemon" => false,
-        "workers" => 4
+        "daemon" => false
     ])
     {
         $this->start_time = date("Y-m-d H:i:s");
         //默认的pid路径
-        self::$pid = HOME . "/wing.pid";
+        self::$pidFile = HOME . "/wing.pid";
         foreach ($params as $key => $value) {
             $this->$key = $value;
         }
 
         register_shutdown_function(function () {
             $log = $this->getProcessDisplay() . " 正常退出";
-            $winfo = self::getWorkerProcessInfo();
-            $process_id = $winfo["process_id"] ?? 0;
-            $current_processid = get_current_processid();
+            $process_id = self::getWorkerProcessInfo()["process_id"] ?? 0;
+            $curr_process_id = get_current_processid();
             if (!$this->normal_stop) {
                 $log = $this->getProcessDisplay() . " 异常退出";
-                if ($current_processid == $process_id) {
+                if ($curr_process_id == $process_id) {
                     $log = $this->getProcessDisplay() . " 父进程异常退出";
                 }
                 if ($e = error_get_last()) {
@@ -58,17 +56,13 @@ class Worker
                 }
             }
 
-            if (WING_DEBUG) {
-                wing_debug($log);
-            }
+            wing_debug($log);
             wing_log("run", $log);
 
-            if ($current_processid == $process_id && !$this->normal_stop) {
+            if ($curr_process_id == $process_id && !$this->normal_stop) {
                 $log = "父进程异常退出，尝试kill所有子进程" . $this->getProcessDisplay();
 
-                if (WING_DEBUG) {
-                    wing_debug($log);
-                }
+                wing_debug($log);
                 if ($e = error_get_last()) {
                     $log .= ' ' . json_encode($e);
                 }
@@ -86,22 +80,19 @@ class Worker
      */
     public static function getWorkerProcessInfo()
     {
-        self::$pid = HOME . "/wing.pid";
-        if (!is_file(self::$pid)) return [];
+        if (!self::$pidFile || !is_file(self::$pidFile)) return [];
 
-        $data = file_get_contents(self::$pid);
-        list($pid, $daemon, $workers) = json_decode($data, true);
-
+        //[$pid, $daemon]
+        $data = explode(" ", file_get_contents(self::$pidFile));
         return [
-            "process_id" => $pid,
-            "daemon" => $daemon,
-            "workers" => $workers
+            "process_id" => (int)$data[0],
+            "daemon" => (bool)$data[1]
         ];
     }
 
     public static function clearAll()
     {
-        @unlink(self::$pid);
+        self::$pidFile && @unlink(self::$pidFile);
     }
 
     /**
@@ -123,20 +114,18 @@ class Worker
      * signal handler 信号回调函数
      *
      * @param int $signal
+     * @throws \Exception
      */
     public function signalHandler($signal)
     {
         if (IS_WINDOWS) return;
 
-        $winfo = self::getWorkerProcessInfo();;
-        $server_id = $winfo["process_id"];
-
+        $server_id = self::getWorkerProcessInfo()["process_id"] ?? 0;
         switch ($signal) {
-            //stop all
-            case SIGINT:
+            case SIGINT: //stop
                 $this->normal_stop = true;
-                $current_processid = get_current_processid();
-                if ($server_id == $current_processid) {
+                $curr_process_id = get_current_processid();
+                if ($server_id == $curr_process_id) {
                     #self::clearAll();
 
                     foreach ($this->processes as $id => $pid) {
@@ -171,32 +160,29 @@ class Worker
 
                         if ((time() - $start) >= 5) {
                             wing_debug("退出进程超时");
-                            wing_log('run', $current_processid, "退出进程超时");
+                            wing_log('run', $curr_process_id, "退出进程超时");
                             break;
                         }
                     }
-                    wing_debug($current_processid, "父进程退出");
-                    wing_log('run', $current_processid, "父进程退出");
+                    wing_debug($curr_process_id, "父进程退出");
+                    wing_log('run', $curr_process_id, "父进程退出");
                 } else {
-                    wing_debug($current_processid, "收到退出信号");
-                    wing_log('run', $current_processid, "收到退出信号");
+                    wing_debug($curr_process_id, "收到退出信号");
+                    wing_log('run', $curr_process_id, "收到退出信号");
                 }
                 exit(0);
             //restart
             case SIGUSR1:
-                $worker_info = Worker::getWorkerProcessInfo();
-                $daemon = $worker_info["daemon"];
-                $workers = $worker_info["workers"];
+                $daemon = self::getWorkerProcessInfo()["daemon"] ?? false;
 
-                Worker::stopAll();
+                self::stopAll();
 
                 $worker = new Worker([
-                    "daemon" => (bool)$daemon,
-                    "workers" => $workers
+                    "daemon" => (bool)$daemon
                 ]);
                 $worker->start();
                 break;
-            case SIGUSR2:
+            case SIGUSR2: //生成status信息
                 //echo get_current_processid()," show status\r\n";
 
                 if ($server_id == get_current_processid()) {
@@ -220,26 +206,26 @@ class Worker
                         "wing php >> master process"
                     );
 
-                    file_put_contents(HOME . "/logs/status.log", $str);
+                    file_put_contents(LOG_DIR . "/status.log", $str);
 
                     foreach ($this->processes as $id => $pid) {
                         posix_kill($pid, SIGUSR2);
                     }
                 } else {
                     //子进程
-                    //file_put_contents(HOME."/logs/".get_current_processid()."_get_status", 1);
+                    //file_put_contents(LOG_DIR."/".get_current_processid()."_get_status", 1);
                     //sprintf("","进程id 事件次数 运行时间 进程名称");
-                    $current_processid = get_current_processid();
+                    $curr_process_id = get_current_processid();
                     $str = sprintf(
                         "%-12s%-14s%-21s%-36s%s\r\n",
-                        $current_processid,
-                        BaseWorker::$event_times,
+                        $curr_process_id,
+                        BinlogWorker::$event_times,
                         $this->start_time,
                         timelen_format(time() - strtotime($this->start_time)),
-                        BaseWorker::$process_title
+                        BinlogWorker::$process_title
                     );
 
-                    file_put_contents(HOME . "/logs/status.log", $str, FILE_APPEND);
+                    file_put_contents(LOG_DIR . "/status.log", $str, FILE_APPEND);
                 }
                 break;
         }
@@ -250,9 +236,8 @@ class Worker
      */
     public static function stopAll()
     {
-        $winfo = self::getWorkerProcessInfo();
-        if ($winfo) {
-            $server_id = $winfo["process_id"];
+        $server_id = self::getWorkerProcessInfo()["process_id"] ?? 0;
+        if ($server_id) {
             if (IS_WINDOWS) {
                 $handle = @popen("taskkill /F /pid " . $server_id, "r");
                 if ($handle) {
@@ -276,9 +261,12 @@ class Worker
      */
     public static function showStatus()
     {
-        $winfo = self::getWorkerProcessInfo();
-        $server_id = $winfo["process_id"];
-        posix_kill($server_id, SIGUSR2);
+        $process_id = self::getWorkerProcessInfo()["process_id"] ?? 0;
+        if ($process_id) {
+            posix_kill($process_id, SIGUSR2);
+        } else {
+            echo 'no pid info', PHP_EOL;
+        }
     }
 
     /**
@@ -299,37 +287,30 @@ class Worker
             $this->normal_stop = true;
             enable_deamon();
         }
-        $current_processid = get_current_processid();
+        $curr_process_id = get_current_processid();
 
         $format = "%-12s%-21s%s\r\n";
-        $str = "\r\n" . 'wing-binlog, version: ' . self::VERSION . "\r\n";
+        $str = "\r\n" . 'wing-binlog, version: ' . self::VERSION  .", cfg:".WING_CONFIG. "\r\n";
         $str .= "-----------------------------------------------------------------------\r\n";
         $str .= sprintf($format, "process_id", "start_time", "process_name");
         $str .= "-----------------------------------------------------------------------\r\n";
 
         $str .= sprintf(
             $format,
-            $current_processid,
+            $curr_process_id,
             $this->start_time,
             "wing php >> master process"
         );
 
         echo $str;
         unset($str, $format);
-
-        file_put_contents(
-            self::$pid,
-            json_encode([
-                $current_processid,
-                $this->daemon,
-                $this->workers
-            ])
-        );
+        //记录进程信息
+        file_put_contents(self::$pidFile, sprintf("%s %d", $curr_process_id, $this->daemon));
         set_process_title("wing php >> master process");
 
         $action == 'restart' && sleep(2); //延迟
 
-        $worker = new BinlogWorker($this->daemon, $this->workers);
+        $worker = new BinlogWorker($this->daemon);
         $this->event_process_id = $worker->start();
         unset($worker);
         $this->processes[] = $this->event_process_id;
@@ -357,8 +338,9 @@ class Worker
                         unset($this->processes[$id]);
 
                         if ($pid == $this->event_process_id) { //重新运行子进程
-                            $worker = new BinlogWorker($this->daemon, $this->workers);
+                            $worker = new BinlogWorker($this->daemon);
                             $this->event_process_id = $worker->start();
+                            wing_log('run', $this->event_process_id, "生成新子进程");
                             unset($worker);
                             $this->processes[] = $this->event_process_id;
                             break;

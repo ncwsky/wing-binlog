@@ -1,4 +1,5 @@
-<?php namespace Wing\Library;
+<?php
+namespace Wing\Library;
 
 use Wing\Bin\Auth;
 use Wing\Bin\BinlogPacket;
@@ -69,33 +70,32 @@ class Binlog
      */
     public function __construct(IDb $db)
     {
-        $config = load_config("app");
+        $config = load_config(WING_CONFIG);
         self::$db  = $db;
-        $this->binlogPacket = new BinlogPacket($config['do_db']??'', $config['ig_db']??'');
+        $this->binlogPacket = new BinlogPacket($config['sync_db']??'');
         $this->mysql_binlog = "mysqlbinlog";
         if (isset($config["mysqlbinlog"])) {
             $this->mysql_binlog = $config["mysqlbinlog"];
         }
         if (!$this->isOpen()) {
-            wing_debug("请开启mysql binlog日志");
+            wing_echo("请开启mysql binlog日志");
             exit;
         }
         if ($this->getFormat() != "row") {
-            wing_debug("仅支持row格式");
+            wing_echo("仅支持row格式");
             exit;
         }
-        $this->cache_handler = new File(HOME."/cache");
         //初始化，最后操作的binlog文件
         $this->binlog_file = $this->getLastBinLog();
-        list(, $this->last_pos) = $this->getLastPosition();
-        if (!$this->binlog_file || !$this->last_pos) {
+        $this->last_pos = $this->getLastPosition();
+        if (false===$this->binlog_file || false===$this->last_pos) {
             //当前使用的binlog 文件
             $info = $this->getCurrentLogInfo();
 
             self::$forceWriteLogPos = true;
             //缓存初始复制点
             $this->setLastBinLog($info["File"]);
-            $this->setLastPosition(0, $info["Position"]);
+            $this->setLastPosition($info["Position"]);
         }
         $start_msg = sprintf("%-12s%-21s%s\r\n", $this->binlog_file, $this->last_pos, "Starting position");
         echo $start_msg;
@@ -120,7 +120,7 @@ class Binlog
             //注册为slave
             $this->registerSlave($config["slave_server_id"]);
         } catch (\Exception $e) {
-            wing_debug($e->getMessage());
+            wing_echo($e->getMessage());
             wing_log('error', 'registerSlave fail', $e->getFile().':'.$e->getLine(), $e->getMessage());
         }
     }
@@ -149,7 +149,7 @@ class Binlog
         }
 
         if ($last_pos) {
-            $this->setLastPosition(0, $last_pos);
+            $this->setLastPosition($last_pos);
         }
 
         return $result;
@@ -207,9 +207,7 @@ class Binlog
     */
     public function getLogs()
     {
-        $sql  = 'show binary logs';
-
-        return self::$db->query($sql);
+        return self::$db->query('show binary logs');
     }
 
     public function getFormat()
@@ -234,10 +232,7 @@ class Binlog
      */
     public function getCurrentLogInfo()
     {
-        $sql  = 'show master status';
-
-        $data = self::$db->row($sql);
-        return $data;
+        return self::$db->row('show master status');
     }
 
     /**
@@ -328,15 +323,14 @@ class Binlog
     public function setLastBinLog($binlog)
     {
         $this->binlog_file = $binlog;
-        return $this->cache_handler->set("mysql.last", $binlog);
+        return file_put_contents(CACHE_DIR.'/master.last', $binlog, LOCK_EX);
     }
     /**
-     * 设置最后的读取位置--游标，请勿删除mysql.pos
-     * @param $start_pos
+     * 设置最后的读取位置--游标，请勿删除master.pos
      * @param $end_pos
      * @return bool
      */
-    public function setLastPosition($start_pos, $end_pos)
+    public function setLastPosition($end_pos)
     {
         static $lastWriteTime = 0; //上次写入时间
         $this->last_pos = $end_pos;
@@ -356,8 +350,8 @@ class Binlog
         }
 
         if ($force) {
-            wing_debug('----------------------------------------- wirte pos ' . $end_pos.'------------------------');
-            $this->cache_handler->set("mysql.pos", [$start_pos, $end_pos]);
+            wing_echo('write pos ' . $end_pos);
+            file_put_contents(CACHE_DIR.'/master.pos', $end_pos, LOCK_EX);
         }
 
         return $force;
@@ -369,7 +363,10 @@ class Binlog
      */
     public function getLastBinLog()
     {
-        return $this->cache_handler->get("mysql.last");
+        if (!file_exists(CACHE_DIR . '/master.last')) {
+            return false;
+        }
+        return trim(file_get_contents(CACHE_DIR.'/master.last'));
     }
     /**
      * 获取最后的读取位置
@@ -377,7 +374,10 @@ class Binlog
      */
     public function getLastPosition()
     {
-        return $this->cache_handler->get("mysql.pos");
+        if (!file_exists(CACHE_DIR . '/master.pos')) {
+            return false;
+        }
+        return trim(file_get_contents(CACHE_DIR.'/master.pos'));
     }
 
     /**
@@ -421,7 +421,7 @@ class Binlog
 //        $str1 = md5(rand(0,999999));
 //        $str2 = md5(rand(0,999999));
 //        $str3 = md5(rand(0,999999));
-//        $dir = HOME."/cache/binfile";
+//        $dir = CACHE_DIR."/binfile";
 //            (new WDir($dir))->mkdir();
 
 //            $file_name = time().

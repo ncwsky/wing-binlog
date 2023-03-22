@@ -8,7 +8,6 @@
  * windows兼容
  */
 defined('SIGTERM') || define('SIGTERM', 15); //中止服务
-
 defined('SIGINT') || define('SIGINT', 2); //结束服务
 defined('SIGUSR1') || define('SIGUSR1', 10); //重启服务
 defined('SIGUSR2') || define('SIGUSR2', 12); //服务状态

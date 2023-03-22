@@ -1,15 +1,10 @@
 <?php
-/**
- * @author yuyi
- * @created 2016/12/4 9:13
- * @email 297341015@qq.com
- */
-
 if (!function_exists("set_process_title")) {
     /**
      * 设置进程名称
      * 此api仅在linux以及unix相关系统支持，windows不支持
      * @param string $title
+     * @return bool|null
      */
     function set_process_title($title)
     {
@@ -23,25 +18,6 @@ if (!function_exists("set_process_title")) {
             return cli_set_process_title($title);
         }
         return null;
-    }
-}
-
-if (!function_exists("get_process_title")) {
-    /**
-     * 获取进程名称
-     * linux以及unix相关系统直接返回进程名称
-     * windows下返回程序的启动命令
-     * @return string
-     */
-    function get_process_title()
-    {
-        if (function_exists("cli_get_process_title")) {
-            $title =  cli_get_process_title();
-            if ($title) {
-                return $title;
-            }
-        }
-        return WING_COMMAND_LINE;
     }
 }
 
@@ -101,7 +77,7 @@ if (!function_exists("reset_std")) {
             return;
         }
         global $STDOUT, $STDERR;
-        $file       = HOME."/logs/wing.log";
+        $file       = LOG_DIR."/wing.log";
         if (!file_exists($file)) {
             if (!is_dir(dirname($file))) {
                 mkdir(dirname($file), 0777, true);
@@ -115,126 +91,87 @@ if (!function_exists("reset_std")) {
     }
 }
 
+/**
+ * 加载配置文件
+ * @param string $name 文件名称|指定配置文件
+ * @return array
+ */
+function load_config($name)
+{
+    static $config = [];
+    if (isset($config[$name])) {
+        return $config[$name];
+    }
 
-if (!function_exists("load_config")) {
-    static $all_configs = [];
-    /**
-     * 加载配置文件
-     * @param string $name 文件名称，不带php后缀
-     * @return mixed
-     */
-    function load_config($name)
-    {
-        global $all_configs;
-        $config_file = HOME . "/config/" . $name . ".php";
-        if (isset($all_configs[$name])) {
-            return $all_configs[$name];
+    $config[$name] = [];
+    //直接指定了配置文件
+    if (strpos($name, '.php') && file_exists($name)) {
+        $config[$name] = require($name);
+    } elseif (file_exists(CONFIG_DIR . "/" . $name . ".local.php")) {
+        $config[$name] = require(CONFIG_DIR . "/" . $name . ".local.php");
+    } elseif (file_exists(CONFIG_DIR . "/" . $name . ".php")) {
+        $config[$name] = require(CONFIG_DIR . "/" . $name . ".php");
+    }
+    return $config[$name];
+}
+
+/**
+ * 时间长度格式化
+ * @param int $time_len 时间长度，单位为秒，比如 60， 最终会转换为 "1分钟" 或者 "1minutes"
+ * @return string
+ */
+function timelen_format($time_len)
+{
+    $lang = "en";
+    if ($time_len < 60) {
+        if ($lang == "en") {
+            return $time_len . " seconds";
+        }
+        return $time_len . "秒";
+    } elseif ($time_len < 3600 && $time_len >= 60) {
+        $m = intval($time_len / 60);
+        $s = $time_len - $m * 60;
+        if ($lang == "en") {
+            return $m . " minutes " . $s . " seconds";
+        }
+        return $m . "分钟" . $s . "秒";
+    } elseif ($time_len < (24 * 3600) && $time_len >= 3600) {
+        $h = intval($time_len / 3600);
+        $s = $time_len - $h * 3600;
+        if ($s >= 60) {
+            $m = intval($s / 60);
         } else {
-            $all_configs[$name] = include $config_file;
+            $m = 0;
         }
-        return $all_configs[$name];
-    }
-}
-
-if (!function_exists("try_lock")) {
-    /**
-     * 使用文件锁尝试加锁
-     * @param string $key 锁定的key
-     * @return bool true加锁成功，false加锁失败
-     */
-    function try_lock($key)
-    {
-        $dir = HOME."/cache/lock";
-        if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
+        $s = $s-$m * 60;
+        if ($lang == "en") {
+            return $h . " hours " . $m . " minutes " . $s . " seconds";
         }
-        $file = $dir."/".md5($key);
-        if (file_exists($file)) {
-            return false;
-        }
-        touch($file);
-        return file_exists($file);
-    }
-}
-
-if (!function_exists("lock_free")) {
-    /**
-     * 释放锁
-     * @param string $key 需要释放的key
-     * @return bool
-     */
-    function lock_free($key)
-    {
-        $dir = HOME."/cache/lock";
-        if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
-        }
-        $file = $dir."/".md5($key);
-        if (!file_exists($file)) {
-            return true;
-        }
-        return unlink($file);
-    }
-}
-
-if (!function_exists("timelen_format")) {
-    /**
-     * 时间长度格式化
-     * @param int $time_len 时间长度，单位为秒，比如 60， 最终会转换为 "1分钟" 或者 "1minutes"
-     */
-    function timelen_format($time_len)
-    {
-        $lang = "en";
-        if ($time_len < 60) {
-            if ($lang == "en") {
-                return $time_len . " seconds";
-            }
-            return $time_len . "秒";
-        } elseif ($time_len < 3600 && $time_len >= 60) {
-            $m = intval($time_len / 60);
-            $s = $time_len - $m * 60;
-            if ($lang == "en") {
-                return $m . " minutes " . $s . " seconds";
-            }
-            return $m . "分钟" . $s . "秒";
-        } elseif ($time_len < (24 * 3600) && $time_len >= 3600) {
-            $h = intval($time_len / 3600);
-            $s = $time_len - $h * 3600;
+        return $h . "小时" . $m . "分钟" . $s . "秒";
+    } else {
+        $d = intval($time_len / (24 * 3600));
+        $s = $time_len - $d * (24 * 3600);
+        $h = 0;
+        $m = 0;
+        if ($s < 60) {
+            //do nothing
+        } elseif ($s >= 60 && $s < 3600) {
+            $m = intval($s / 60);
+            $s = $s - $m * 60;
+        } else {
+            $h = intval($s / 3600);
+            $s = $s - $h * 3600;
+            $m = 0;
             if ($s >= 60) {
                 $m = intval($s / 60);
-            } else {
-                $m = 0;
-            }
-            $s = $s-$m * 60;
-            if ($lang == "en") {
-                return $h . " hours " . $m . " minutes " . $s . " seconds";
-            }
-            return $h . "小时" . $m . "分钟" . $s . "秒";
-        } else {
-            $d = intval($time_len / (24 * 3600));
-            $s = $time_len - $d * (24 * 3600);
-            $h = 0;
-            $m = 0;
-            if ($s < 60) {
-                //do nothing
-            } elseif ($s >= 60 && $s < 3600) {
-                $m = intval($s / 60);
                 $s = $s - $m * 60;
-            } else {
-                $h = intval($s / 3600);
-                $s = $s - $h * 3600;
-                $m = 0;
-                if ($s >= 60) {
-                    $m = intval($s / 60);
-                    $s = $s - $m * 60;
-                }
             }
-            if ($lang == "en") {
-                return $d." days ".$h . " hours " . $m . " minutes " . $s . " seconds";
-            }
-            return $d."天".$h . "小时" . $m . "分钟" . $s . "秒";
-
         }
+        if ($lang == "en") {
+            return $d." days ".$h . " hours " . $m . " minutes " . $s . " seconds";
+        }
+        return $d."天".$h . "小时" . $m . "分钟" . $s . "秒";
+
     }
 }
 
@@ -268,45 +205,46 @@ if (!function_exists("scan")) {
     }
 }
 
-if (!function_exists("wing_debug")) {
-    function wing_debug($log)
-    {
-        if (!WING_DEBUG) {
-            return;
+function wing_echo($log)
+{
+    echo date("Y-m-d H:i:s")." ";
+    foreach (func_get_args() as $item) {
+        if (is_scalar($item)) {
+            echo $item." ";
+        } else {
+            echo json_encode($item, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
-        echo date("Y-m-d H:i:s")." ";
-        foreach (func_get_args() as $item) {
-            if (is_scalar($item)) {
-                echo $item." ";
-            } else {
-                var_dump($item);
-            }
-        }
-        echo PHP_EOL;
     }
+    echo PHP_EOL;
 }
 
-if (!function_exists("wing_log")) {
-    function wing_log($level = "log", $msg = "")
-    {
-        $msg = is_scalar($msg) ? $msg : json_encode($msg, JSON_UNESCAPED_UNICODE);
-        $log = date("Y-m-d H:i:s") . " ". $msg;
-        $args_num = func_num_args();
-        if ($args_num > 2) {
-            $args = func_get_args();
-            for ($i = 2; $i < $args_num; $i++) {
-                $log .= " " . (is_scalar($args[$i]) ? $args[$i] : json_encode($args[$i], JSON_UNESCAPED_UNICODE));
-            }
-        }
-        file_put_contents(HOME."/logs/".$level.".log", $log."\r\n", FILE_APPEND);
+function wing_debug($log)
+{
+    if (!WING_DEBUG) {
+        return;
+    }
+    call_user_func_array('wing_echo', func_get_args());
+}
 
-        if($level=='exception' || $level=='retry' || $level=='error' || strpos($log,'退出')!==false){
-            //发送通知
-            $appConfig = load_config("app");
-            if (!empty($appConfig['warn_notice_url'])) {
-                $ret = curlSend($appConfig['warn_notice_url'], 'POST', ['title' => $level, 'msg' => $msg]);
-                file_put_contents(HOME . "/logs/warn_notice.log", date("Y-m-d H:i:s") . '[' . $level . '] msg:' . $msg . ' => ' . $ret . "\r\n", FILE_APPEND);
-            }
+function wing_log($level = "log", $msg = "")
+{
+    $msg = is_scalar($msg) ? $msg : json_encode($msg, JSON_UNESCAPED_UNICODE);
+    $log = date("Y-m-d H:i:s") . " ". $msg;
+    $args_num = func_num_args();
+    if ($args_num > 2) {
+        $args = func_get_args();
+        for ($i = 2; $i < $args_num; $i++) {
+            $log .= " " . (is_scalar($args[$i]) ? $args[$i] : json_encode($args[$i], JSON_UNESCAPED_UNICODE));
+        }
+    }
+    file_put_contents(LOG_DIR."/".$level.".log", $log."\r\n", FILE_APPEND);
+
+    if($level=='exception' || $level=='retry' || $level=='error' || strpos($log,'退出')!==false){
+        //发送通知
+        $appConfig = load_config(WING_CONFIG);
+        if (!empty($appConfig['warn_notice_url'])) {
+            $ret = curlSend($appConfig['warn_notice_url'], 'POST', ['title' => $level, 'msg' => $msg]);
+            file_put_contents(LOG_DIR . "/warn_notice.log", date("Y-m-d H:i:s") . '[' . $level . '] msg:' . $msg . ' => ' . $ret . "\r\n", FILE_APPEND);
         }
     }
 }
@@ -449,7 +387,7 @@ function curlSend($url, $type='GET', $data=null, $timeout=5, $header='', $opt=[]
         $result = curl_exec($ch);
     }
     if(curl_errno($ch)){
-        $err_file = HOME.'/logs/curl_err.log';
+        $err_file = LOG_DIR.'/curl_err.log';
         if(is_file($err_file) && 4194304 <= filesize($err_file) ){ #4M
             #copy($err_file, dirname($err_file).'/'.date('YmdHis').'.log');
             file_put_contents($err_file, '', LOCK_EX | LOCK_NB);
