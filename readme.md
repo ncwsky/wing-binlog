@@ -47,22 +47,21 @@ binlog_format=ROW
 ````             
 2. 将config下的配置文件.example去除后修改其配置为自己的配置 
 ````
-cd config && cp app.php.example app.php
+cd config && cp app.example.php app.php
 ````  
-3. 执行 php wing start --debug 开启服务进程（需要预先安装composer和php，并将php和composer添加到环境变量），可选参数 --d 以守护进程执行， --debug 启用debug模式， --n 指定进程数量，如：      
+3. 执行 php wing start --debug 开启服务进程（需要预先安装composer和php，并将php和composer添加到环境变量），可选参数 --d 以守护进程执行， --debug 启用debug模式，如：      
 ````
-php wing start --d --debug --n 8 
-````         
-4. clients下面有两个测试的客户端，一个websocket和一个php实现的tcp client      
-5. 停止所有服务  
+php wing start --d --debug
+````            
+4. 停止所有服务  
 ````
 php wing stop 
 ````
-6. 查看服务状态   
+5. 查看服务状态   
 ````
 php wing status 
 ````
-7. src/Subscribe目录为可选的订阅者服务插件，只需要配置到app.php的subscribe下即可！    
+6. src/Subscribe目录为可选的订阅者服务插件，只需要配置到app.php的subscribe下即可！    
 wing-binlog提供tcp和websocket服务，可选使用go或者workerman，workerman仅支持linux，go支持所有的平台。    
 使用go服务需要安装go，已安装的忽略。    
 编译go服务（如需使用，请先编译后再启动Binlog服务）：
