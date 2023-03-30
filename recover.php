@@ -7,12 +7,27 @@ if (is_file(__DIR__ . "/../conf.local.php")) {
 }
 require __DIR__ . '/../vendor/myphps/myphp/base.php';
 
-date_default_timezone_set("PRC");
-define('IS_WINDOWS', DIRECTORY_SEPARATOR === '\\');
-define("HOME", __DIR__);
+$chain_id = 0;
+$home_dir = '';
+$c_key = array_search('-c', $argv); //-c 连锁id
+if($c_key && isset($argv[$c_key+1])){
+    $chain_id = trim($argv[$c_key+1]);
+}
+$c_key = array_search('-m', $argv); //指定主目录
+if($c_key && isset($argv[$c_key+1])){
+    $home_dir = $argv[$c_key+1];
+} else {
+    exit("php recover.php -m 主目录  \n");
+}
 
-$chain_id = (int)GetC('chain_id');
-if (!$chain_id) exit('fail chain_id');
+date_default_timezone_set("PRC");
+//根目录
+define("HOME", $home_dir);
+define("CACHE_DIR", $home_dir.'/cache');
+define("CONFIG_DIR", $home_dir.'/config');
+define("LOG_DIR", $home_dir.'/logs');
+
+if (!$chain_id) exit('fail chain_id |  php recover.php -m 主目录 -c 连锁id ');
 
 $coverFile = CACHE_DIR . '/fail_data';
 if (!file_exists($coverFile)) {
@@ -44,7 +59,7 @@ if (flock($fp, LOCK_EX)) {
 }
 fclose($fp);
 $msg = 'all:' . $all . ', ok:' . $ok . ', ' . toByte(memory_get_peak_usage()) . ' -- ' . run_mem() . ' -- ' . run_time();
-file_put_contents(HOME . '/recover_result.log', date("Y-m-d H:i:s ") . $msg . "\r\n", FILE_APPEND);
+file_put_contents(LOG_DIR . '/recover_result.log', date("Y-m-d H:i:s ") . $msg . "\r\n", FILE_APPEND);
 echo $msg, PHP_EOL;
 
 function toRecover($chain_id, $result)
@@ -62,7 +77,7 @@ function toRecover($chain_id, $result)
 
         if ($result['event'] == 'write_rows' || $result['event'] == 'update_rows') {
             $data = $result['event'] == 'write_rows' ? $result['data'] : $result['data']['new'];
-            $model = new \Model($result['table']);
+            $model = new \myphp\Model($result['table']);
             $hasData = $model->where(['id' => $data['id']])->find();
             if (!$hasData) {
                 $model->setData($data);
@@ -74,14 +89,16 @@ function toRecover($chain_id, $result)
         } elseif ($result['event'] == 'delete_rows') {
             $data = $result['data'];
             db()->del($result['table'], ['id' => $data['id']]);
+        } elseif($result['event']=='query'){
+            db()->execute($result['data']);
         }
         return true;
     } catch (\Exception $e) {
         $hasRepeat = $result['event'] == 'write_rows' && strpos($e->getMessage(), 'Duplicate entry');
         if (!$hasRepeat) {
-            \Log::write($result['table'], 'table');
-            \Log::write($result['data'], 'data');
-            \Log::Exception($e, false);
+            isset($result['table']) && \myphp\Log::write($result['table'], 'table');
+            \myphp\Log::write($result['data'], 'data');
+            \myphp\Log::Exception($e, false);
 
             file_put_contents(CACHE_DIR . '/fail_data2', date("Y-m-d H:i:s ") . json_encode($result) . "\n", FILE_APPEND);
         }

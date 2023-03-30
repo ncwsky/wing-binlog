@@ -81,8 +81,9 @@ class SyncDb implements ISubscribe
                         break;
                     }
                     db()->execute('use '.$this->local_db_name);
-                    \myphp\Log::write($result['data'], 'exec');
-                    db()->execute($result['data']);
+                    $sql = str_replace('`'.$this->db_name.'`', '`'.$this->local_db_name.'`', $result['data']);
+                    \myphp\Log::write($sql, 'exec');
+                    db()->execute($sql);
                     break;
                 case 'write_rows':
                     db()->add($result['data'], $this->local_db_name.'.'.$this->table_name);
