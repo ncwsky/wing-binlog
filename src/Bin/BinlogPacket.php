@@ -1396,7 +1396,7 @@ class BinlogPacket
         elseif ($t == Column::JSONB_TYPE_UINT16)
             return $this->readUint16();
         elseif($t==Column::JSONB_TYPE_DOUBLE)
-            return unpack('d', $this->read(8))[0]; //<d小端双精度
+            return unpack('d', $this->read(8))[1]; //<d小端双精度
         elseif ($t == Column::JSONB_TYPE_INT32)
             return $this->readInt32();
         elseif ($t == Column::JSONB_TYPE_UINT32)
