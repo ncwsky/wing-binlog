@@ -1145,7 +1145,7 @@ class BinlogPacket
             else if($column['type'] == FieldType::JSON) { //当字符串处理
                 //$values[$name] = $this->_readString($column['length_size'], $column);
                 $values[$name] = $this->read_binary_json($column['length_size']);
-                if (is_array($values[$name])) {
+                if (is_array($values[$name]) || $values[$name] instanceof \SplFixedArray) {
                     $values[$name] = json_encode($values[$name], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 }
             }
