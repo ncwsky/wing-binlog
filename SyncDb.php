@@ -133,9 +133,17 @@ class SyncDb implements ISubscribe
                 $map[$field] = $data[$field];
             }
         }
-        if (!$map) { //未匹配更新条件使用所有旧数据做为条件
+        if ($map) { //对有主键或唯一索引的数据做存在验证处理
+            $find = db()->fields(array_keys($map))->table($this->local_db_name . "." . $this->table_name)->where($map)->one();
+            if (!$find) { //记录不存在直接写入
+                db()->add($data, $this->local_db_name.'.'.$this->table_name);
+                //\myphp\Log::write($this->local_db_name.'.'.$this->table_name.':'.toJson($map).PHP_EOL.toJson($data), 'update2new');
+                return;
+            }
+        } else {//未匹配更新条件使用所有旧数据做为条件
             $map = $old;
         }
+
         foreach ($data as $k => $v) {
             if ($old[$k] === $v) {
                 unset($data[$k]);
