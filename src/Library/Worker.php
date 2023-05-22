@@ -15,7 +15,6 @@ class Worker
 {
     const VERSION = "3.0.0";
 
-    public static $pidFile = '';
     //父进程相关配置
     private $daemon = false;
     private $normal_stop = false;
@@ -36,8 +35,6 @@ class Worker
     ])
     {
         $this->start_time = date("Y-m-d H:i:s");
-        //默认的pid路径
-        self::$pidFile = HOME . "/wing.pid";
         foreach ($params as $key => $value) {
             $this->$key = $value;
         }
@@ -80,10 +77,10 @@ class Worker
      */
     public static function getWorkerProcessInfo()
     {
-        if (!self::$pidFile || !is_file(self::$pidFile)) return [];
+        if (!is_file(self::pidFile())) return [];
 
         //[$pid, $daemon]
-        $data = explode(" ", file_get_contents(self::$pidFile));
+        $data = explode(" ", file_get_contents(self::pidFile()));
         return [
             "process_id" => (int)$data[0],
             "daemon" => (bool)$data[1]
@@ -92,7 +89,11 @@ class Worker
 
     public static function clearAll()
     {
-        self::$pidFile && @unlink(self::$pidFile);
+        @unlink(self::pidFile());
+    }
+
+    public static function pidFile(){
+        return HOME . "/wing.pid";
     }
 
     /**
@@ -305,7 +306,7 @@ class Worker
         echo $str;
         unset($str, $format);
         //记录进程信息
-        file_put_contents(self::$pidFile, sprintf("%s %d", $curr_process_id, $this->daemon));
+        file_put_contents(self::pidFile(), sprintf("%s %d", $curr_process_id, $this->daemon));
         set_process_title("wing php >> master process");
 
         $action == 'restart' && sleep(2); //延迟
