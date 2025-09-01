@@ -1,4 +1,5 @@
 <?php
+namespace Wing;
 
 use Wing\Cache\File;
 use Wing\Library\ISubscribe;
