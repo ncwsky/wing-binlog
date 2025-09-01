@@ -15,7 +15,7 @@ if (!function_exists("socket_create")) {
 $action = isset($argv[1]) ? $argv[1] : '';
 $daemon = array_search('-d', $argv) ? true : false;
 $config = 'app';
-$home_dir = __DIR__;
+$home_dir = ''; //__DIR__;
 $c_key = array_search('-c', $argv); //指定配置文件 不指定默认在主目录config下
 if($c_key && isset($argv[$c_key+1])){
     $config = $argv[$c_key+1];
@@ -24,6 +24,14 @@ $c_key = array_search('-m', $argv); //指定主目录
 if($c_key && isset($argv[$c_key+1])){
     $home_dir = $argv[$c_key+1];
 }
+if (!$home_dir) {
+    exit('未指定主目录');
+}
+$home_dir = realpath($home_dir);
+if (!$home_dir) {
+    exit('主目录不存在');
+}
+echo ym
 define("WING_CONFIG", $config);
 define("WING_DEBUG", !$daemon);
 
