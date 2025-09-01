@@ -1,5 +1,4 @@
 <?php
-require_once(HOME . '/SyncDb.php');
 
 return  [
     //必须配置：mysqlbinlog 命令，如果无法识别 写绝对路径
@@ -23,7 +22,7 @@ return  [
     //'warn_notice_url'=>'https://xxx.com/warn-notice',
     //以下配置均属于可选订阅 可以任意增加 只需要遵循接口ISubscribe实现即可
     "subscribe" => [
-        \SyncDb::class => [
+        \Wing\SyncDb::class => [
             //'chain_id'=>0,
             //自定义参数
         ],
