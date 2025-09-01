@@ -9,7 +9,7 @@ use Wing\Library\ISubscribe;
 class SyncDb implements ISubscribe
 {
     public $allowDbTable = []; // 格式 ['db_name'=>1|['table_name',...],....]
-    public $chain_id = 0;
+    public $slave_id = 0;
     private $db_name = ''; //使用的库名
     private $local_db_name = ''; //使用的库名
     private $table_name = '';
@@ -31,7 +31,7 @@ class SyncDb implements ISubscribe
         if (!empty($params['db_table'])) {
             $this->allowDbTable = $params['db_table'];
         }
-        $this->chain_id = (int)load_config(WING_CONFIG)['slave_server_id']??0;
+        $this->slave_id = (int)load_config(WING_CONFIG)['slave_server_id'] ?? 0;
         $this->dataDir = CACHE_DIR;
         $this->cache = new File(CACHE_DIR);
         $this->sync_table_conf = GetC('sync_table_conf', []);
@@ -43,7 +43,7 @@ class SyncDb implements ISubscribe
         try {
             //库检查 $result['dbname']
             //表检测 $result['table']??''
-            $this->table_name = $table = $result['table'] ?? '';
+            $this->table_name = $result['table'] ?? '';
 
             //本地测试使用
             if ($result['dbname'] == 'service') {
@@ -69,11 +69,7 @@ class SyncDb implements ISubscribe
                     return;
                 }
             }
-            if(!$this->chain_id){
-                wing_echo($this->db_name . '.' . $this->table_name . ' 未指定连锁id continue');
-                return;
-            }
-            $this->local_db_name = $this->chain_id.'_'.$this->db_name;
+            $this->local_db_name = $this->db_name;
             //echo toJson($result).PHP_EOL; return; //test
             switch ($result['event']) {
                 case 'query':
@@ -99,8 +95,8 @@ class SyncDb implements ISubscribe
             $hasRepeat = $result['event'] == 'write_rows' && strpos($e->getMessage(), 'Duplicate entry');
 
             if ($hasRepeat) {
-                #\Log::write(db()->getSql(), 'Duplicate');
-                #error_log(date("Y-m-d H:i:s ").json_encode($result)."\n", 3, $this->dataDir.'/repeat_data');
+                \myphp\Log::write(db()->getSql(), 'Duplicate');
+                error_log(date("Y-m-d H:i:s ") . json_encode($result) . "\n", 3, $this->dataDir . '/repeat_data');
             } else {
                 \myphp\Log::write($this->table_name, 'table');
                 \myphp\Log::write($result['data'], 'data');
@@ -126,8 +122,9 @@ class SyncDb implements ISubscribe
     protected function update($data, $old)
     {
         $map = [];
-        if (!empty($data['id'])) { //优先主键id
-            $map = ['id' => $data['id']];
+        $priKey = $this->sync_table_conf[$this->db_name][$this->table_name]['pri_key'] ?? 'id';
+        if (isset($data[$priKey])) { //优先主键id
+            $map = [$priKey => $data[$priKey]];
         } elseif (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) { //唯一键
             foreach ($this->sync_table_conf[$this->db_name][$this->table_name]['unique'] as $field) {
                 $map[$field] = $data[$field];
@@ -154,11 +151,12 @@ class SyncDb implements ISubscribe
 
     protected function delete($data)
     {
-        if (!empty($data['id'])) { //优先主键id
-            db()->execute("DELETE FROM `" . $this->local_db_name . "`.`" . $this->table_name . "` WHERE id=" . $data['id']);
-        } else { //唯一键
+        $priKey = $this->sync_table_conf[$this->db_name][$this->table_name]['pri_key'] ?? 'id';
+        if (isset($data[$priKey])) { //优先主键id
+            $map = [$priKey => $data[$priKey]];
+        } else {
             $map = [];
-            if (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) {
+            if (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) {  //唯一键
                 foreach ($this->sync_table_conf[$this->db_name][$this->table_name]['unique'] as $field) {
                     $map[$field] = $data[$field];
                 }
@@ -166,7 +164,7 @@ class SyncDb implements ISubscribe
             if (!$map) { //未匹配删除条件使用所有数据做为条件
                 $map = $data;
             }
-            db()->del($this->local_db_name . "." . $this->table_name, $map);
         }
+        db()->del($this->local_db_name . '.' . $this->table_name, $map);
     }
 }
