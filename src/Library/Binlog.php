@@ -5,7 +5,6 @@ use Wing\Bin\Auth;
 use Wing\Bin\BinlogPacket;
 use Wing\Bin\Net;
 use Wing\Bin\Packet;
-use Wing\Cache\File;
 
 /**
  * Created by PhpStorm.

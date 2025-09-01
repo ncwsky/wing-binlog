@@ -1,4 +1,5 @@
-<?php namespace Wing\Library;
+<?php
+namespace Wing\Library;
 
 /**
  * Created by PhpStorm.
