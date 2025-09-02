@@ -42,7 +42,7 @@ if (!$home_dir) {
 $argv = array_values($argv);
 $action = $argv[1] ?? '';
 
-echo 'run dir: ' . $home_dir . ', config: ' . $config . ', action: ' . $action . ', daemon: ' . ($daemon ? 'Y' : 'N') . PHP_EOL;
+echo 'run dir: ' . $home_dir . ', config: ' . $config . ', action: ' . $action . ', daemon: ' . ($daemon ? 'Y' : 'N') . PHP_EOL, PHP_EOL;
 
 define("WING_CONFIG", $config);
 define("WING_DEBUG", !$daemon);
@@ -102,8 +102,27 @@ if ($action == 'start') {
     sleep(1);
     echo file_get_contents(HOME . "/logs/status.log");
     exit(0);
+} elseif ($action == 'recover') {
+    $config = load_config(WING_CONFIG);
+    $recover = false;
+    if (isset($config["subscribe"]) && is_array($config["subscribe"])) {
+        foreach ($config["subscribe"] as $class => $params) {
+            $sync = new $class($params);
+            if (method_exists($sync, 'recover')) {
+                $recover = true;
+                $sync->recover();
+                break;
+            }
+        }
+    }
+    if ($recover) {
+        echo "恢复执行成功", PHP_EOL;
+    } else {
+        echo "没有需要恢复的订阅任务", PHP_EOL;
+    }
+    exit(0);
 } else {
-    echo "执行 php wing start|restart|stop|status, [start|restart]可选参数 -d 以守护进程执行" . PHP_EOL;
+    echo "执行 php wing start|restart|stop|status|recover -m指定主目录 -c指定配置文件, 可选参数 -d 以守护进程执行" . PHP_EOL;
     echo "如： php wing start -d -c app|/xx/app.php" . PHP_EOL;
     exit(0);
 }

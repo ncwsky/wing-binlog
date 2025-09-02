@@ -14,26 +14,24 @@ class SyncDb implements ISubscribe
     private $db_name = ''; //使用的库名
     private $local_db_name = ''; //使用的库名
     private $table_name = '';
-    private $dataDir = '';
     private $cache = null;
     private $sync_table_conf = [];
 
     public function __construct($params=[])
     {
-        if (file_exists(HOME . '/../conf.local.php')) {
-            require_once(HOME . '/../conf.local.php');
+        if (file_exists(HOME . '/config/conf.local.php')) {
+            require_once(HOME . '/config/conf.local.php');
         } else {
-            require_once(HOME . '/../conf.php');
+            require_once(HOME . '/config/conf.php');
         }
         $cfg['log_dir'] = LOG_DIR; //重置日志目录
 
-        require_once(HOME . '/../vendor/myphps/myphp/base.php');
+        require_once(__DIR__ . '/../vendor/myphps/myphp/base.php');
 
         if (!empty($params['db_table'])) {
             $this->allowDbTable = $params['db_table'];
         }
         $this->slave_id = (int)load_config(WING_CONFIG)['slave_server_id'] ?? 0;
-        $this->dataDir = CACHE_DIR;
         $this->cache = new File(CACHE_DIR);
         $this->sync_table_conf = GetC('sync_table_conf', []);
         //db()::log_on(2);
@@ -97,7 +95,7 @@ class SyncDb implements ISubscribe
 
             if ($hasRepeat) {
                 \myphp\Log::write(db()->getSql(), 'Duplicate');
-                error_log(date("Y-m-d H:i:s ") . json_encode($result) . "\n", 3, $this->dataDir . '/repeat_data');
+                error_log(date("Y-m-d H:i:s ") . json_encode($result) . "\n", 3, CACHE_DIR . '/repeat_data');
             } else {
                 \myphp\Log::write($this->table_name, 'table');
                 \myphp\Log::write($result['data'], 'data');
@@ -115,9 +113,11 @@ class SyncDb implements ISubscribe
                 }
 
                 //$result 缓存下来用于修复处理
-                error_log(date("Y-m-d H:i:s ") . json_encode($result) . "\n", 3, $this->dataDir . '/fail_data');
+                error_log(date("Y-m-d H:i:s ") . json_encode($result) . "\n", 3, CACHE_DIR . '/fail_data');
             }
+            return false;
         }
+        return true;
     }
 
     protected function update($data, $old)
@@ -167,5 +167,55 @@ class SyncDb implements ISubscribe
             }
         }
         db()->del($this->local_db_name . '.' . $this->table_name, $map);
+    }
+
+    public function recover()
+    {
+        if (!file_exists(CACHE_DIR . '/fail_data')) {
+            return;
+        }
+        //复制失败数据到执行恢复文件
+        $fp = fopen(CACHE_DIR . '/fail_data', "r+");
+        if (flock($fp, LOCK_EX)) {
+            copy(CACHE_DIR . '/fail_data', CACHE_DIR . '/fail_data_run');
+            ftruncate($fp, 0);
+            flock($fp, LOCK_UN);
+            fclose($fp);
+        } else {
+            echo "lock fail", PHP_EOL;
+            fclose($fp);
+            return;
+        }
+
+        $coverFile = CACHE_DIR . '/fail_data_run';
+        run_time(true);
+        $ok = 0;
+        $all = 0;
+        $fp = fopen($coverFile, "r+");
+        while (!feof($fp)) {
+            $result = fgets($fp);
+            echo $result, PHP_EOL;
+            if ($result) {
+                $result = json_decode(trim(substr($result, 20)), true);
+                if (isset($result['event'])) {
+                    $all++;
+                    $hasOk = $this->onchange($result); //todo 这里恢复update操作可能覆盖新更新的数据
+                    if ($hasOk) {
+                        $ok++;
+                    }
+                    echo $hasOk ? 'ok' : 'fail', PHP_EOL;
+                }
+            }
+        }
+        if (flock($fp, LOCK_EX)) {
+            ftruncate($fp, 0);
+            flock($fp, LOCK_UN);
+        } else {
+            echo "lock fail", PHP_EOL;
+        }
+        fclose($fp);
+        $msg = $coverFile . ' all:' . $all . ', ok:' . $ok . ', ' . toByte(memory_get_peak_usage()) . ' -- ' . run_time();
+        file_put_contents(LOG_DIR . '/recover_result.log', date("Y-m-d H:i:s ") . $msg . "\r\n", FILE_APPEND);
+        echo $msg, PHP_EOL;
     }
 }

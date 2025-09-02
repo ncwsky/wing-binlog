@@ -19,7 +19,7 @@ todo:
 >指定同步库或忽略库
 >指定表或忽略表
 
-
+composer create-project myphps/wing-binlog
 
 基于mysql数据库binlog的增量订阅&消费
 ====
