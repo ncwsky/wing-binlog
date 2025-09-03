@@ -1,6 +1,8 @@
 <?php
+
 namespace Wing;
 
+use myphp\Log;
 use Wing\Cache\File;
 use Wing\Library\ISubscribe;
 
@@ -9,15 +11,16 @@ use Wing\Library\ISubscribe;
  */
 class SyncDb implements ISubscribe
 {
-    public $allowDbTable = []; // 格式 ['db_name'=>1|['table_name',...],....]
+    public $allowDbTable = []; //允许库、表 格式 ['db_name'=>1|['table_name',...],....]
+    public $exclude_table = [];//【优先】排除库、表 格式 ['db_name'=>1|'table_name,...',....]
     public $slave_id = 0;
     private $db_name = ''; //使用的库名
     private $local_db_name = ''; //使用的库名
     private $table_name = '';
     private $cache = null;
-    private $sync_table_conf = [];
+    private $sync_table_conf = []; //表同步配置 主键、唯一键
 
-    public function __construct($params=[])
+    public function __construct($params = [])
     {
         if (file_exists(HOME . '/config/conf.local.php')) {
             require_once(HOME . '/config/conf.local.php');
@@ -33,7 +36,14 @@ class SyncDb implements ISubscribe
         }
         $this->slave_id = (int)load_config(WING_CONFIG)['slave_server_id'] ?? 0;
         $this->cache = new File(CACHE_DIR);
-        $this->sync_table_conf = GetC('sync_table_conf', []);
+        if (file_exists(HOME . '/config/sync_table_conf.json')) {
+            $this->sync_table_conf = json_decode(file_get_contents(HOME . '/config/sync_table_conf.json'), true);
+            //Log::write($this->sync_table_conf, 'sync_table_conf');
+        } else {
+            $this->sync_table_conf = GetC('sync_table_conf', []);
+        }
+        $this->exclude_table = GetC('exclude_table', []);
+        //Log::write($this->exclude_table, 'exclude_table');
         //db()::log_on(2);
     }
 
@@ -58,14 +68,25 @@ class SyncDb implements ISubscribe
                 //db()->execute('use '.$this->db_name);
             }
             //限定库表处理
-            if ($this->allowDbTable) {
+            if ($this->exclude_table) {
+                if (isset($this->exclude_table[$this->db_name])) { //排除库处理
+                    if ($this->exclude_table[$this->db_name] === 1) {
+                        wing_echo($this->db_name . ' continue');
+                        return true;
+                    }
+                    if ($this->table_name && strpos(',' . $this->exclude_table[$this->db_name] . ',', ',' . $this->table_name . ',') !== false) {
+                        wing_echo($this->db_name . '.' . $this->table_name . ' continue');
+                        return true;
+                    }
+                }
+            } elseif ($this->allowDbTable) {
                 if (!isset($this->allowDbTable[$this->db_name])) {
                     wing_echo($this->db_name . ' continue');
-                    return;
+                    return true;
                 }
                 if ($this->table_name && $this->allowDbTable[$this->db_name] !== 1 && strpos(',' . $this->allowDbTable[$this->db_name] . ',', ',' . $this->table_name . ',') === false) {
                     wing_echo($this->db_name . '.' . $this->table_name . ' continue');
-                    return;
+                    return true;
                 }
             }
             $this->local_db_name = $this->db_name;
@@ -75,13 +96,18 @@ class SyncDb implements ISubscribe
                     if ($result['data'] == 'BEGIN' || $result['data'] == 'COMMIT' || strncmp($result['data'], 'SAVEPOINT', 9) === 0) {
                         break;
                     }
-                    db()->execute('use '.$this->local_db_name);
-                    $sql = str_replace('`'.$this->db_name.'`', '`'.$this->local_db_name.'`', $result['data']);
+                    if ($this->local_db_name) { //切换库
+                        db()->execute('use ' . $this->local_db_name);
+                        $sql = str_replace('`' . $this->db_name . '`', '`' . $this->local_db_name . '`', $result['data']);
+                    } else {
+                        $sql = $result['data'];
+                    }
                     \myphp\Log::write($sql, 'exec');
                     db()->execute($sql);
                     break;
                 case 'write_rows':
-                    db()->add($result['data'], $this->local_db_name.'.'.$this->table_name);
+                    $this->insert($result['data']);
+                    //db()->add($result['data'], $this->local_db_name . '.' . $this->table_name);
                     break;
                 case 'update_rows':
                     $this->update($result['data']['new'], $result['data']['old']);
@@ -95,11 +121,10 @@ class SyncDb implements ISubscribe
 
             if ($hasRepeat) {
                 \myphp\Log::write(db()->getSql(), 'Duplicate');
-                error_log(date("Y-m-d H:i:s ") . json_encode($result) . "\n", 3, CACHE_DIR . '/repeat_data');
+                error_log(date("Y-m-d H:i:s ") . toJson($result) . "\n", 3, CACHE_DIR . '/repeat_data');
             } else {
-                \myphp\Log::write($this->table_name, 'table');
-                \myphp\Log::write($result['data'], 'data');
-                \myphp\Log::Exception($e, false);
+                \myphp\Log::WARN($this->db_name . '.' . $this->table_name . ', err:' . $e->getMessage());
+                \myphp\Log::write($result, 'result');
 
                 //发送通知
                 $appConfig = load_config(WING_CONFIG);
@@ -113,28 +138,48 @@ class SyncDb implements ISubscribe
                 }
 
                 //$result 缓存下来用于修复处理
-                error_log(date("Y-m-d H:i:s ") . json_encode($result) . "\n", 3, CACHE_DIR . '/fail_data');
+                error_log(date("Y-m-d H:i:s ") . toJson($result) . "\n", 3, CACHE_DIR . '/fail_data');
             }
             return false;
         }
         return true;
     }
 
-    protected function update($data, $old)
+    protected function _map(&$data)
     {
         $map = [];
-        $priKey = $this->sync_table_conf[$this->db_name][$this->table_name]['pri_key'] ?? 'id';
-        if (isset($data[$priKey])) { //优先主键id
-            $map = [$priKey => $data[$priKey]];
-        } elseif (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) { //唯一键
+        if (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) { //优先唯一键
             foreach ($this->sync_table_conf[$this->db_name][$this->table_name]['unique'] as $field) {
                 $map[$field] = $data[$field];
             }
+        } else {
+            $priKey = $this->sync_table_conf[$this->db_name][$this->table_name]['pri_key'] ?? 'id';
+            if (isset($data[$priKey])) { //主键id
+                $map = [$priKey => $data[$priKey]];
+            }
         }
+        return $map;
+    }
+
+    protected function insert($data)
+    {
+        $map = $this->_map($data);
+        if ($map) { //对有主键或唯一索引的数据做存在验证处理
+            $find = db()->fields(array_keys($map))->table($this->local_db_name . "." . $this->table_name)->where($map)->one();
+            if ($find) { //记录存在不处理
+                return;
+            }
+        }
+        db()->add($data, $this->local_db_name . '.' . $this->table_name);
+    }
+
+    protected function update($data, $old)
+    {
+        $map = $this->_map($data);
         if ($map) { //对有主键或唯一索引的数据做存在验证处理
             $find = db()->fields(array_keys($map))->table($this->local_db_name . "." . $this->table_name)->where($map)->one();
             if (!$find) { //记录不存在直接写入
-                db()->add($data, $this->local_db_name.'.'.$this->table_name);
+                db()->add($data, $this->local_db_name . '.' . $this->table_name);
                 //\myphp\Log::write($this->local_db_name.'.'.$this->table_name.':'.toJson($map).PHP_EOL.toJson($data), 'update2new');
                 return;
             }
@@ -147,24 +192,16 @@ class SyncDb implements ISubscribe
                 unset($data[$k]);
             }
         }
-        db()->update($data, $this->local_db_name . "." . $this->table_name, $map);
+        if ($data) {
+            db()->update($data, $this->local_db_name . "." . $this->table_name, $map);
+        }
     }
 
     protected function delete($data)
     {
-        $priKey = $this->sync_table_conf[$this->db_name][$this->table_name]['pri_key'] ?? 'id';
-        if (isset($data[$priKey])) { //优先主键id
-            $map = [$priKey => $data[$priKey]];
-        } else {
-            $map = [];
-            if (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) {  //唯一键
-                foreach ($this->sync_table_conf[$this->db_name][$this->table_name]['unique'] as $field) {
-                    $map[$field] = $data[$field];
-                }
-            }
-            if (!$map) { //未匹配删除条件使用所有数据做为条件
-                $map = $data;
-            }
+        $map = $this->_map($data);
+        if (!$map) { //未匹配删除条件使用所有数据做为条件
+            $map = $data;
         }
         db()->del($this->local_db_name . '.' . $this->table_name, $map);
     }
