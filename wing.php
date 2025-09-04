@@ -5,33 +5,55 @@ if (!function_exists("socket_create")) {
     exit("Please install php_sockets extension \n");
 }
 
-if (array_search('-h', $argv)) {
+/**
+ * 简单的命令行参数解析
+ * @param string $options 参数名称 间字符选项、长选项同时支持使用|分隔: -c|--config
+ * @param mixed $def
+ * @param bool $optNoVal 选项不接受值
+ * @return mixed|string
+ */
+function parseCmd(string $options, $def = null, bool $optNoVal = false)
+{
+    global $argv;
+    $val = $optNoVal ? false : $def;
+    $names = explode('|', $options);
+    /* todo 识别处理 -c app|--config=app
+    foreach ($argv as $k => $v){
+      if($k==0) continue;
+
+    }*/
+    foreach ($names as $name) {
+        $k = array_search($name, $argv);
+        if ($k) {
+            if ($optNoVal) {
+                $val = true;
+            } else {
+                if (isset($argv[$k + 1])) {
+                    $val = $argv[$k + 1];
+                    unset($argv[$k + 1]);
+                }
+            }
+            unset($argv[$k]);
+            break;
+        }
+    }
+    return $val;
+}
+
+if (parseCmd('-h', null, true)) {
     echo 'Usage: php ' . basename($_SERVER['SCRIPT_FILENAME']) . ' start|restart|stop|status OPTION
     
     -h          说明
+    --debug     调试模式
     -d          以守护进程执行
     -m          运行主目录
     -c          配置文件', PHP_EOL;
     exit(0);
 }
 
-$daemon = false;
-if ($c_key = array_search('-d', $argv)) { //守护模式
-    $daemon = true;
-    unset($argv[$c_key]);
-}
-$config = 'app';
-$c_key = array_search('-c', $argv); //指定配置文件 不指定默认在主目录config下
-if ($c_key && isset($argv[$c_key + 1])) {
-    $config = $argv[$c_key + 1];
-    unset($argv[$c_key], $argv[$c_key + 1]);
-}
-$home_dir = '';
-$c_key = array_search('-m', $argv); //指定主目录
-if ($c_key && isset($argv[$c_key + 1])) {
-    $home_dir = $argv[$c_key + 1];
-    unset($argv[$c_key], $argv[$c_key + 1]);
-}
+$daemon = parseCmd('-d', null, true); //守护模式
+$config = parseCmd('-c|--config', 'app');
+$home_dir = parseCmd('-m|--dir');
 if (!$home_dir) {
     exit('未指定主目录');
 }
@@ -44,8 +66,8 @@ $action = $argv[1] ?? '';
 
 echo 'run dir: ' . $home_dir . ', config: ' . $config . ', action: ' . $action . ', daemon: ' . ($daemon ? 'Y' : 'N') . PHP_EOL, PHP_EOL;
 
-define("WING_CONFIG", $config);
-define("WING_DEBUG", !$daemon);
+define('WING_CONFIG', $config);
+define('WING_DEBUG', parseCmd('--debug', null, true));
 
 //定义时区
 date_default_timezone_set("PRC");
@@ -82,7 +104,7 @@ if (WING_DEBUG) {
 if (!load_config(WING_CONFIG)) {
     exit("config load fail \n");
 }
-if (!in_array($action, ['start', 'restart', 'stop', 'status'])) {
+if (!in_array($action, ['start', 'restart', 'stop', 'status', 'recover'])) {
     $action = '';
 }
 $runLock = $home_dir . '/runLock'; //防重复运行

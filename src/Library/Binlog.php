@@ -96,8 +96,8 @@ class Binlog
             $this->setLastBinLog($info["File"]);
             $this->setLastPosition($info["Position"]);
         }
-        $start_msg = sprintf("%-12s%-21s%s\r\n", $this->binlog_file, $this->last_pos, "Starting position");
-        echo $start_msg;
+        $start_msg = sprintf("%-20s%-20s%s", $this->binlog_file, $this->last_pos, "Starting position");
+        echo $start_msg,PHP_EOL;
         wing_log('rotate', $start_msg);
         $this->connect($config);
     }
@@ -349,7 +349,7 @@ class Binlog
         }
 
         if ($force) {
-            wing_echo('write pos ' . $end_pos);
+            //wing_echo('write pos ' . $end_pos);
             file_put_contents(CACHE_DIR.'/master.pos', $end_pos, LOCK_EX);
         }
 

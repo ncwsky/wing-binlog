@@ -19,6 +19,10 @@ class SyncDb implements ISubscribe
     private $table_name = '';
     private $cache = null;
     private $sync_table_conf = []; //表同步配置 主键、唯一键
+    /**
+     * @var \Closure|null 数据处理前的回调函数 function($result){return $result;}
+     */
+    public $event_before_call = null;
 
     public function __construct($params = [])
     {
@@ -43,7 +47,15 @@ class SyncDb implements ISubscribe
             $this->sync_table_conf = GetC('sync_table_conf', []);
         }
         $this->exclude_table = GetC('exclude_table', []);
-        //Log::write($this->exclude_table, 'exclude_table');
+        //回调
+        if (isset($params['event_before_call'])) {
+            $this->event_before_call = $params['event_before_call'];
+        } else {
+            $this->event_before_call = GetC('event_before_call');
+        }
+        if ($this->event_before_call && !($this->event_before_call instanceof \Closure)) {
+            $this->event_before_call = null;
+        }
         //db()::log_on(2);
     }
 
@@ -91,6 +103,12 @@ class SyncDb implements ISubscribe
             }
             $this->local_db_name = $this->db_name;
             //echo toJson($result).PHP_EOL; return; //test
+            if ($this->event_before_call) {
+                $result = call_user_func($this->event_before_call, $result);
+                if ($result === null) {
+                    return true;
+                }
+            }
             switch ($result['event']) {
                 case 'query':
                     if ($result['data'] == 'BEGIN' || $result['data'] == 'COMMIT' || strncmp($result['data'], 'SAVEPOINT', 9) === 0) {
@@ -117,29 +135,27 @@ class SyncDb implements ISubscribe
                     break;
             }
         } catch (\Exception $e) {
-            $hasRepeat = $result['event'] == 'write_rows' && strpos($e->getMessage(), 'Duplicate entry');
+            $hasRepeat = strpos($e->getMessage(), 'Duplicate entry');
+            \myphp\Log::write($result, 'result');
+            \myphp\Log::WARN($this->db_name . '.' . $this->table_name . ', err:' . substr($e->getMessage(), 0, 100));
+            //\myphp\Log::write(db()->getSql(), $hasRepeat ? 'Duplicate' : 'sql');
 
-            if ($hasRepeat) {
-                \myphp\Log::write(db()->getSql(), 'Duplicate');
-                error_log(date("Y-m-d H:i:s ") . toJson($result) . "\n", 3, CACHE_DIR . '/repeat_data');
-            } else {
-                \myphp\Log::WARN($this->db_name . '.' . $this->table_name . ', err:' . $e->getMessage());
-                \myphp\Log::write($result, 'result');
+            //发送通知
+            $appConfig = load_config(WING_CONFIG);
+            if (!empty($appConfig['warn_notice_url'])) {
+                if (!$this->cache->get('warn-notice')) { #1分钟内只发一次
+                    $this->cache->set('warn-notice', date("Y-m-d H:i:s"), 60);
 
-                //发送通知
-                $appConfig = load_config(WING_CONFIG);
-                if (!empty($appConfig['warn_notice_url'])) {
-                    if (!$this->cache->get('warn-notice')) { #x分钟内只发一次
-                        $this->cache->set('warn-notice', date("Y-m-d H:i:s"), 30 * 60);
-
-                        $ret = \Http::doPost($appConfig['warn_notice_url'], ['title' => 'binglog错误预警', 'msg' => $e->getMessage()]);
-                        \myphp\Log::write($ret, 'curl');
-                    }
+                    $ret = \Http::doPost($appConfig['warn_notice_url'], ['title' => 'binglog错误预警', 'msg' => $e->getMessage()]);
+                    \myphp\Log::write($ret, 'curl');
                 }
+            }
 
-                //$result 缓存下来用于修复处理
+            //$result 缓存下来用于修复处理
+            if(!$hasRepeat){
                 error_log(date("Y-m-d H:i:s ") . toJson($result) . "\n", 3, CACHE_DIR . '/fail_data');
             }
+
             return false;
         }
         return true;
@@ -148,7 +164,7 @@ class SyncDb implements ISubscribe
     protected function _map(&$data)
     {
         $map = [];
-        if (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) { //优先唯一键
+        if (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) { //唯一键
             foreach ($this->sync_table_conf[$this->db_name][$this->table_name]['unique'] as $field) {
                 $map[$field] = $data[$field];
             }
@@ -163,8 +179,19 @@ class SyncDb implements ISubscribe
 
     protected function insert($data)
     {
-        $map = $this->_map($data);
-        if ($map) { //对有主键或唯一索引的数据做存在验证处理
+        $priKey = $this->sync_table_conf[$this->db_name][$this->table_name]['pri_key'] ?? 'id';
+        if (isset($data[$priKey])) { //主键id
+            $map = [$priKey => $data[$priKey]];
+            $find = db()->fields($priKey)->table($this->local_db_name . "." . $this->table_name)->where($map)->one();
+            if ($find) { //记录存在不处理
+                return;
+            }
+        }
+        if (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) { //唯一键
+            $map = [];
+            foreach ($this->sync_table_conf[$this->db_name][$this->table_name]['unique'] as $field) {
+                $map[$field] = $data[$field];
+            }
             $find = db()->fields(array_keys($map))->table($this->local_db_name . "." . $this->table_name)->where($map)->one();
             if ($find) { //记录存在不处理
                 return;
@@ -175,35 +202,58 @@ class SyncDb implements ISubscribe
 
     protected function update($data, $old)
     {
-        $map = $this->_map($data);
-        if ($map) { //对有主键或唯一索引的数据做存在验证处理
+        $needUpdate = false;
+        $map = [];
+        $priKey = $this->sync_table_conf[$this->db_name][$this->table_name]['pri_key'] ?? 'id';
+        if (isset($data[$priKey])) { //主键id
+            $map = [$priKey => $data[$priKey]];
+            $find = db()->fields($priKey)->table($this->local_db_name . "." . $this->table_name)->where($map)->one();
+            if ($find) { //记录存在需要更新
+                $needUpdate = true;
+            }
+        }
+        if (!$needUpdate && isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) { //唯一键
+            $map = [];
+            foreach ($this->sync_table_conf[$this->db_name][$this->table_name]['unique'] as $field) {
+                $map[$field] = $data[$field];
+            }
             $find = db()->fields(array_keys($map))->table($this->local_db_name . "." . $this->table_name)->where($map)->one();
-            if (!$find) { //记录不存在直接写入
-                db()->add($data, $this->local_db_name . '.' . $this->table_name);
-                //\myphp\Log::write($this->local_db_name.'.'.$this->table_name.':'.toJson($map).PHP_EOL.toJson($data), 'update2new');
-                return;
-            }
-        } else {//未匹配更新条件使用所有旧数据做为条件
-            $map = $old;
-        }
-
-        foreach ($data as $k => $v) {
-            if ($old[$k] === $v) {
-                unset($data[$k]);
+            if ($find) { //记录存在需要更新
+                $needUpdate = true;
             }
         }
-        if ($data) {
-            db()->update($data, $this->local_db_name . "." . $this->table_name, $map);
+        if ($needUpdate) {
+            foreach ($data as $k => $v) {
+                if ($old[$k] === $v) {
+                    unset($data[$k]);
+                }
+            }
+            if ($data) {
+                db()->update($data, $this->local_db_name . "." . $this->table_name, $map);
+            }
+        } else { //未匹配更新条件生成新记录
+            db()->add($data, $this->local_db_name . '.' . $this->table_name);
         }
     }
 
     protected function delete($data)
     {
-        $map = $this->_map($data);
+        $map = [];
+        $priKey = $this->sync_table_conf[$this->db_name][$this->table_name]['pri_key'] ?? 'id';
+        if (isset($data[$priKey])) { //主键id
+            $map = [$priKey => $data[$priKey]];
+        } elseif (isset($this->sync_table_conf[$this->db_name][$this->table_name]['unique'])) { //唯一键
+            foreach ($this->sync_table_conf[$this->db_name][$this->table_name]['unique'] as $field) {
+                $map[$field] = $data[$field];
+            }
+        }
         if (!$map) { //未匹配删除条件使用所有数据做为条件
             $map = $data;
         }
-        db()->del($this->local_db_name . '.' . $this->table_name, $map);
+        $ok = db()->del($this->local_db_name . '.' . $this->table_name, $map);
+        if (!$ok) {
+            //throw new \Exception('无可删除的记录');
+        }
     }
 
     public function recover()
@@ -212,15 +262,16 @@ class SyncDb implements ISubscribe
             return;
         }
         //复制失败数据到执行恢复文件
-        $fp = fopen(CACHE_DIR . '/fail_data', "r+");
-        if (flock($fp, LOCK_EX)) {
-            copy(CACHE_DIR . '/fail_data', CACHE_DIR . '/fail_data_run');
-            ftruncate($fp, 0);
-            flock($fp, LOCK_UN);
-            fclose($fp);
+        $src_fp = fopen(CACHE_DIR . '/fail_data', "r+");
+        $fp = fopen(CACHE_DIR . '/fail_data_run', "w+");
+        if (flock($src_fp, LOCK_EX)) {
+            stream_copy_to_stream($src_fp, $fp);
+            ftruncate($src_fp, 0);
+            flock($src_fp, LOCK_UN);
+            fclose($src_fp);
         } else {
             echo "lock fail", PHP_EOL;
-            fclose($fp);
+            fclose($src_fp);
             return;
         }
 
@@ -244,12 +295,7 @@ class SyncDb implements ISubscribe
                 }
             }
         }
-        if (flock($fp, LOCK_EX)) {
-            ftruncate($fp, 0);
-            flock($fp, LOCK_UN);
-        } else {
-            echo "lock fail", PHP_EOL;
-        }
+        ftruncate($fp, 0);
         fclose($fp);
         $msg = $coverFile . ' all:' . $all . ', ok:' . $ok . ', ' . toByte(memory_get_peak_usage()) . ' -- ' . run_time();
         file_put_contents(LOG_DIR . '/recover_result.log', date("Y-m-d H:i:s ") . $msg . "\r\n", FILE_APPEND);

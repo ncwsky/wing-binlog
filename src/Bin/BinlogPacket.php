@@ -151,7 +151,7 @@ class BinlogPacket
             // 映射fields相关信息
             case EventType::TABLE_MAP_EVENT:
                 $tableMap = $this->tableMap();
-                wing_debug($tableMap);
+                //wing_debug($tableMap);
                 break;
             case EventType::UPDATE_ROWS_EVENT_V2:
             case EventType::UPDATE_ROWS_EVENT_V1:
@@ -193,15 +193,15 @@ class BinlogPacket
                 $log_pos = $this->readUint64();
                 $file_name = $this->read($event_size_without_header - 8);
 
-                wing_log('rotate', $file_name . '   ' . $log_pos);
+                wing_log('rotate', sprintf("%-20s%-20s", $file_name, $log_pos));
                 Binlog::$forceWriteLogPos = true; //更新日志点
 
                 break;
             case EventType::HEARTBEAT_LOG_EVENT:
-                if (WING_DEBUG) {
+                /*if (WING_DEBUG) {
                     $binlog_name = $this->read($event_size_without_header);
                     wing_debug('HEARTBEAT => ' . $binlog_name . ' : ' . $log_pos);
-                }
+                }*/
                 break;
             case EventType::XID_EVENT:
                 if (!$this->allowDb($this->schema_name)) {
@@ -212,7 +212,7 @@ class BinlogPacket
                 if (WING_DEBUG) {
                     $data = $this->eventXid();
                     $data["time"] = date("Y-m-d H:i:s", $timestamp);
-                    wing_debug('XID', 'time:', $data['time'], 'db:', $data['dbname'], 'xid:', $data['data']);
+                    //wing_debug('XID', 'time:', $data['time'], 'db:', $data['dbname'], 'xid:', $data['data']);
                 }
                 break;
             case EventType::QUERY_EVENT:
@@ -243,7 +243,7 @@ class BinlogPacket
                 break;
             case EventType::ANONYMOUS_GTID_LOG_EVENT: //匿名事务
                 //todo 解析
-                wing_debug('ANONYMOUS', 'time:', date("Y-m-d H:i:s", $timestamp));
+                //wing_debug('ANONYMOUS', 'time:', date("Y-m-d H:i:s", $timestamp));
                 break;
             default:
                 wing_echo("Unknown", $event_type, $pack);
@@ -254,12 +254,10 @@ class BinlogPacket
             $data["event_size"] = $event_size;
         }*/
 
+        /*
         if (WING_DEBUG) {
-            $msg = $file_name;
-            $msg .= '-- next pos -> ' . $log_pos;
-
-            wing_debug("position", $msg);
-        }
+            wing_debug("position", $file_name . ' -- next pos -> ' . $log_pos);
+        }*/
 
         end:
         return [$data, $file_name, $log_pos];
@@ -592,7 +590,7 @@ class BinlogPacket
         $table_id = $this->readTableId();
         $this->read(2); //flags
 
-        wing_debug('table_id:'.$table_id);
+        //wing_debug('table_id:'.$table_id);
 
         //$flags       = unpack('S', $this->read(2))[1];
         $schema_length = unpack("C", $this->read(1))[1];

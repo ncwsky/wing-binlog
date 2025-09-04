@@ -175,36 +175,6 @@ function timelen_format($time_len)
     }
 }
 
-if (!function_exists("scan")) {
-    function scan($dir, $callback)
-    {
-        ob_start();
-        $path[] = $dir . "/*";
-        while (count($path) != 0) {
-            $v = array_shift($path);
-            foreach (glob($v) as $item) {
-                if (is_file($item)) {
-                    $t   = explode("/", $item);
-                    $t   = array_pop($t);
-                    $sub = substr($t, 0, 4);
-                    if ($sub == "lock") {
-                        unset($t, $sub);
-                        continue;
-                    }
-                    unset($t, $sub);
-                    $callback($item);
-                    unlink($item);
-                }
-            }
-        }
-        $debug = ob_get_contents();
-        ob_end_clean();
-        if ($debug) {
-            wing_debug($debug);
-        }
-    }
-}
-
 function wing_echo($log)
 {
     echo date("Y-m-d H:i:s")." ";
@@ -239,7 +209,7 @@ function wing_log($level = "log", $msg = "")
     }
     file_put_contents(LOG_DIR."/".$level.".log", $log."\r\n", FILE_APPEND);
 
-    if($level=='exception' || $level=='retry' || $level=='error' || strpos($log,'退出')!==false){
+    if ($level == 'exception' || $level == 'retry' || $level == 'error' || strpos($log, '退出') !== false) {
         //发送通知
         $appConfig = load_config(WING_CONFIG);
         if (!empty($appConfig['warn_notice_url'])) {
