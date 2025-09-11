@@ -38,32 +38,6 @@ if (!function_exists("get_current_processid")) {
     }
 }
 
-if (!function_exists("enable_deamon")) {
-    /**
-     * 启用守护进程模式
-     */
-    function enable_deamon()
-    {
-        if (!function_exists("pcntl_fork")) {
-            return;
-        }
-        //修改掩码
-        umask(0);
-        //创建进程
-        $pid = pcntl_fork();
-        if (-1 === $pid) {
-            throw new \Exception('fork fail');
-        } elseif ($pid > 0) {
-            //父进程直接退出
-            exit(0);
-        }
-        //创建进程会话 使当前进程成为会话的主进程
-        if (-1 === posix_setsid()) {
-            throw new \Exception("setsid fail");
-        }
-    }
-}
-
 if (!function_exists("reset_std")) {
     /**
      * 设置输出重定向到文件日志
@@ -73,11 +47,11 @@ if (!function_exists("reset_std")) {
         $os_name = php_uname('s');
         $short_os_name = substr($os_name, 0, 3);
         $short_os_name = strtolower($short_os_name);
-        if ($short_os_name== "win") {
+        if ($short_os_name == "win") {
             return;
         }
         global $STDOUT, $STDERR;
-        $file       = LOG_DIR."/wing.log";
+        $file = LOG_DIR . '/wing.log';
         if (!file_exists($file)) {
             if (!is_dir(dirname($file))) {
                 mkdir(dirname($file), 0777, true);
@@ -94,23 +68,26 @@ if (!function_exists("reset_std")) {
 /**
  * 加载配置文件
  * @param string $name 文件名称|指定配置文件
- * @return array
+ * @param string $key 获取的配置项
+ * @param mixed $default 默认值
+ * @return mixed
  */
-function load_config($name)
+function load_config(string $name, string $key = '', $default = null)
 {
     static $config = [];
-    if (isset($config[$name])) {
-        return $config[$name];
+    if (!isset($config[$name])) {
+        $config[$name] = [];
+        //直接指定了配置文件
+        if (strpos($name, '.php') && file_exists($name)) {
+            $config[$name] = require($name);
+        } elseif (file_exists(CONFIG_DIR . "/" . $name . ".local.php")) {
+            $config[$name] = require(CONFIG_DIR . "/" . $name . ".local.php");
+        } elseif (file_exists(CONFIG_DIR . "/" . $name . ".php")) {
+            $config[$name] = require(CONFIG_DIR . "/" . $name . ".php");
+        }
     }
-
-    $config[$name] = [];
-    //直接指定了配置文件
-    if (strpos($name, '.php') && file_exists($name)) {
-        $config[$name] = require($name);
-    } elseif (file_exists(CONFIG_DIR . "/" . $name . ".local.php")) {
-        $config[$name] = require(CONFIG_DIR . "/" . $name . ".local.php");
-    } elseif (file_exists(CONFIG_DIR . "/" . $name . ".php")) {
-        $config[$name] = require(CONFIG_DIR . "/" . $name . ".php");
+    if ($key) {
+        return $config[$name][$key] ?? $default;
     }
     return $config[$name];
 }

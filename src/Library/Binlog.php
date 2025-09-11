@@ -5,6 +5,7 @@ use Wing\Bin\Auth;
 use Wing\Bin\BinlogPacket;
 use Wing\Bin\Net;
 use Wing\Bin\Packet;
+use Wing\Library\Workers\BinlogWorker;
 
 /**
  * Created by PhpStorm.
@@ -108,19 +109,19 @@ class Binlog
         try {
             //认证
             Auth::execute(
-                $config["mysql"]["host"],
-                $config["mysql"]["user"],
-                $config["mysql"]["password"],
-                $config["mysql"]["db_name"],
-                $config["mysql"]["port"],
-                $config["mysql"]["rec_time_out"]??self::HEARTBEAT
+                $config['mysql']['host'],
+                $config['mysql']['user'],
+                $config['mysql']['password'],
+                $config['mysql']['db_name'],
+                $config['mysql']['port'],
+                $config['mysql']['rec_time_out'] ?? self::HEARTBEAT
             );
 
             //注册为slave
-            $this->registerSlave($config["slave_server_id"]);
+            $this->registerSlave((int)$config['slave_server_id']);
         } catch (\Exception $e) {
             wing_echo($e->getMessage());
-            wing_log('error', 'registerSlave fail', $e->getFile().':'.$e->getLine(), $e->getMessage());
+            wing_log('error', 'registerSlave fail', $e->getFile() . ':' . $e->getLine(), $e->getMessage());
         }
     }
 
@@ -131,7 +132,25 @@ class Binlog
     public function getBinlogEvents()
     {
         \set_error_handler(function($code, $msg, $file, $line){
-            wing_log('error', "{$file}:{$line}\t{$msg}");
+            $debugInfo = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+            if (count($debugInfo) > 1) {
+                $stack = '';
+                foreach ($debugInfo as $val) {
+                    if (isset($val['type'])) {
+                        $val['function'] = $val['class'] . $val['type'] . $val['function'];
+                        if (!isset($val['line'])) {
+                            $val['line'] = '';
+                        }
+                        if (!isset($val['file'])) {
+                            $val['file'] = '';
+                        }
+                    }
+                    $stack .= 'line:' . $val['line'] . ', file:' . $val['file'] . ', func:' . $val['function'] . PHP_EOL;
+                }
+                wing_log('error', $stack);
+            }
+
+            wing_log('error', sprintf("%s \"%s\" in file %s on line %d\n", BinlogWorker::ERROR_TYPE[$code] ?? $code, $msg, $file, $line));
         });
         \set_exception_handler(function($e){
             wing_log('error', $e->getMessage()."\n".'line:'.$e->getLine().', file:'.$e->getFile()."\n".$e->getTraceAsString());
@@ -160,7 +179,7 @@ class Binlog
      * @return bool
      * @throws \Wing\Bin\NetException
      */
-    public function registerSlave($slave_server_id)
+    public function registerSlave(int $slave_server_id): bool
     {
         $this->checksum = $this->isCheckSum();
         // checksum
