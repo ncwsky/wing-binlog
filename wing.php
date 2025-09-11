@@ -70,13 +70,13 @@ define('WING_CONFIG', $config);
 define('WING_DEBUG', parseCmd('--debug', null, true));
 
 //定义时区
-date_default_timezone_set("PRC");
+date_default_timezone_set('PRC');
 const IS_WINDOWS = DIRECTORY_SEPARATOR === '\\';
 //根目录
-define("HOME", $home_dir);
-define("CACHE_DIR", $home_dir . '/cache');
-define("CONFIG_DIR", $home_dir . '/config');
-define("LOG_DIR", $home_dir . '/logs');
+define('HOME', $home_dir);
+define('CACHE_DIR', $home_dir . '/cache');
+define('CONFIG_DIR', $home_dir . '/config');
+define('LOG_DIR', $home_dir . '/logs');
 //配置目录
 if (!is_dir(CONFIG_DIR)) {
     exit('没有配置目录: ' . CONFIG_DIR);
@@ -150,7 +150,5 @@ if ($action == 'start') {
 }
 
 file_put_contents($runLock, 1);
-$worker = new \Wing\Library\Worker([
-    "daemon" => $daemon
-]);
+$worker = new \Wing\Library\Worker((bool)$daemon);
 $worker->start();

@@ -144,7 +144,7 @@ class BinlogPacket
         switch ($event_type) {
             case EventType::FORMAT_DESCRIPTION_EVENT:
                 $binlog_version = $this->readInt16();
-                $mysql_version = $this->read(50);
+                $mysql_version = trim($this->read(50));
                 $create_timestamp = $this->readInt32();
                 wing_echo('FORMAT_DESCRIPTION_EVENT', 'ServerVer:', $mysql_version, 'BinlogVer:', $binlog_version, 'CreateTimestamp:', $create_timestamp);
                 break;

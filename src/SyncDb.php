@@ -120,7 +120,8 @@ class SyncDb implements ISubscribe
                     } else {
                         $sql = $result['data'];
                     }
-                    \myphp\Log::write($sql, 'exec');
+                    error_log('-- ' . date("Y-m-d H:i:s ") . "\n" . $sql . "\n", 3, CACHE_DIR . '/exec.sql');
+                    //\myphp\Log::write($sql, 'exec');
                     db()->execute($sql);
                     break;
                 case 'write_rows':

@@ -176,12 +176,12 @@ class Packet
      * @param int $master_id
      * @return string
      */
-    public static function registerSlave($slave_server_id, $master_id=0)
+    public static function registerSlave(int $slave_server_id, int $master_id=0)
     {
         $config = load_config(WING_CONFIG);
         $slave_hostname = gethostname();
-        $slave_user = $config["mysql"]["user"];
-        $slave_password = $config["mysql"]["password"];
+        $slave_user = $config['mysql']['user'];
+        $slave_password = $config['mysql']['password'];
         $slave_hostname_len = strlen($slave_hostname);
         $slave_user_len = strlen($slave_user);
         $slave_password_len = strlen($slave_password);
