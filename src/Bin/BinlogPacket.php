@@ -4,6 +4,7 @@ use Wing\Bin\Constant\Column;
 use Wing\Bin\Constant\EventType;
 use Wing\Bin\Constant\FieldType;
 use Wing\Library\Binlog;
+use function bcadd;
 
 /**
  * Created by PhpStorm.
@@ -615,7 +616,7 @@ class BinlogPacket
         $this->advance(1);
 
         $columns_num     = $this->readCodedBinary();
-        $column_type_def = $this->read($columns_num);
+        $column_type_def = $this->read($columns_num); //表所有字段按顺序对应的类型 取值见FieldType::VARCHAR
 
         if ($this->issetTableMapCache($this->schema_name, $this->table_name, $table_id)) {
             return [
@@ -633,21 +634,21 @@ class BinlogPacket
 
         $this->readCodedBinary();
         //fields 相应属性
-        $colums = Binlog::$db->getFields($this->schema_name, $this->table_name);
+        $columns = Binlog::$db->getFields($this->schema_name, $this->table_name);
         $this->table_map[$this->schema_name][$this->table_name]['fields'] = [];
 
-        wing_log('getFields', $this->schema_name, $this->table_name, $column_type_def, $colums);
+        wing_log('getFields', $this->schema_name . '.' . $this->table_name, $columns);
 
         for ($i = 0; $i < strlen($column_type_def); $i++) {
             $type = ord($column_type_def[$i]);
-            //if(!isset($colums[$i])){
-            //    wing_log("slave_warn", var_export($colums, true).var_export($data, true));
+            //if(!isset($columns[$i])){
+            //    wing_log("slave_warn", var_export($columns, true).var_export($data, true));
             //}
-            $this->table_map[$this->schema_name][$this->table_name]['fields'][$i] = $this->ColumnParse($type, $colums[$i]);
+            $this->table_map[$this->schema_name][$this->table_name]['fields'][$i] = $this->ColumnParse($type, $columns[$i]);
         }
 
         //缓存
-        file_put_contents($this->table_map_file, json_encode($this->table_map), LOCK_EX | LOCK_NB);
+        file_put_contents($this->table_map_file, json_encode($this->table_map, JSON_UNESCAPED_UNICODE), LOCK_EX | LOCK_NB);
 
         return [
             'schema_name'=> $this->schema_name,

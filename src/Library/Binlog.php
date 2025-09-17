@@ -132,12 +132,17 @@ class Binlog
     public function getBinlogEvents()
     {
         \set_error_handler(function($code, $msg, $file, $line){
-            $debugInfo = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+            $debugInfo = debug_backtrace();
             if (count($debugInfo) > 1) {
                 $stack = '';
                 foreach ($debugInfo as $val) {
                     if (isset($val['type'])) {
                         $val['function'] = $val['class'] . $val['type'] . $val['function'];
+                        if (!empty($val['args'])) {
+                            $val['function'] .= '(' . implode(',', array_map(function ($v) {
+                                    return json_encode($v, JSON_UNESCAPED_UNICODE);
+                                }, $val['args'])) . ')';
+                        }
                         if (!isset($val['line'])) {
                             $val['line'] = '';
                         }
@@ -150,7 +155,7 @@ class Binlog
                 wing_log('error', $stack);
             }
 
-            wing_log('error', sprintf("%s \"%s\" in file %s on line %d\n", BinlogWorker::ERROR_TYPE[$code] ?? $code, $msg, $file, $line));
+            wing_log('error', sprintf("%s %s:%d %s", BinlogWorker::ERROR_TYPE[$code] ?? $code, $file, $line, $msg));
         });
         \set_exception_handler(function($e){
             wing_log('error', $e->getMessage()."\n".'line:'.$e->getLine().', file:'.$e->getFile()."\n".$e->getTraceAsString());

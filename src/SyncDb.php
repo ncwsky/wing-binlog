@@ -65,13 +65,13 @@ class SyncDb implements ISubscribe
             //库检查 $result['dbname']
             //表检测 $result['table']??''
             $this->table_name = $result['table'] ?? '';
-
+            /*
             //本地测试使用
             if ($result['dbname'] == 'service') {
                 $result['dbname'] = 'yx';
             } elseif ($result['dbname'] == 'local_yx') {
                 $result['dbname'] = 'yxgoods';
-            }
+            }*/
             //切换库
             if ($this->db_name != $result['dbname']) {
                 //db()->conn()->config['name'] = $result['dbname']; //防止重连时丢失选择库

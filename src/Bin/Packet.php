@@ -3,6 +3,7 @@
 use Wing\Bin\Constant\CharacterSet;
 use Wing\Bin\Constant\CommandType;
 use Wing\Bin\Constant\FieldType;
+use function bcadd;
 
 /**
  * Packet.php

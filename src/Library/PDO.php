@@ -127,7 +127,7 @@ class PDO implements IDb
      */
     private function connect()
     {
-        $dsn = 'mysql:dbname=' . $this->dbname . ';host=' . $this->host . ';port='.$this->port;
+        $dsn = 'mysql:dbname=' . $this->dbname . ';host=' . $this->host . ';port=' . $this->port . ';charset=' . $this->char;
         try {
             $this->pdo = new \PDO(
                 $dsn,
@@ -206,7 +206,7 @@ class PDO implements IDb
 
             return $this->statement->execute($parameters);
         } catch (\PDOException $e) {
-            wing_log('error', 'will retry conn', $e->getFile().':'.$e->getLine(), $e->getMessage());
+            wing_log('error', 'will retry conn', $e->getFile().':'.$e->getLine(), $e->getMessage(), $query);
             $this->close();
             $this->connect();
         }

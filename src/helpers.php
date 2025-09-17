@@ -340,7 +340,7 @@ function curlSend($url, $type='GET', $data=null, $timeout=5, $header='', $opt=[]
             file_put_contents($err_file, '', LOCK_EX | LOCK_NB);
             clearstatcache(true, $err_file);
         }
-        error_log('err:'. curl_error($ch)."\nurl:".$url.($data!==null?"\ndata:".(is_scalar($data)?urldecode($data):json_encode($data)):'')."\n", 3, $err_file);
+        error_log('err:'. curl_error($ch)."\nurl:".$url.($data!==null?"\ndata:".(is_scalar($data)?urldecode($data):json_encode($data, JSON_UNESCAPED_UNICODE)):'')."\n", 3, $err_file);
     }
 
     curl_close($ch);
