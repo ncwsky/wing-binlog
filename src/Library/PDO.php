@@ -66,60 +66,9 @@ class PDO implements IDb
         $this->close();
     }
 
-    /**
-     * 获取db名称
-     *
-     * @return string
-     */
-    public function getDatabaseName()
-    {
-        return $this->dbname;
-    }
-
-    /**
-     * 获取host
-     *
-     * @return string
-     */
-    public function getHost()
-    {
-        return $this->host;
-    }
-
-    /**
-     * 获取user
-     *
-     * @return string
-     */
-    public function getUser()
-    {
-        return $this->user;
-    }
-
-    /**
-     * 获取password
-     *
-     * @return string
-     */
-    public function getPassword()
-    {
-        return $this->password;
-    }
-
-    /**
-     * 获取连接端口
-     *
-     * @return int
-     */
-    public function getPort()
-    {
-        return $this->port;
-    }
-
     public function getTables()
     {
-        $datas = $this->query("show tables");
-        return $datas;
+        return $this->query("show tables");
     }
 
     /**

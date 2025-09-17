@@ -11,11 +11,6 @@ namespace Wing\Library;
 interface IDb
 {
     public function query($sql);
-    public function getDatabaseName();
     public function getTables();
     public function row($sql);
-    public function getHost();
-    public function getUser();
-    public function getPassword();
-    public function getPort();
 }

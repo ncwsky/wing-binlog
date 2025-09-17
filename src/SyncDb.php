@@ -2,8 +2,6 @@
 
 namespace Wing;
 
-use myphp\Log;
-use Wing\Cache\File;
 use Wing\Library\ISubscribe;
 
 /**
@@ -39,7 +37,7 @@ class SyncDb implements ISubscribe
             $this->allowDbTable = $params['db_table'];
         }
         $this->slave_id = (int)load_config(WING_CONFIG)['slave_server_id'] ?? 0;
-        $this->cache = new File(CACHE_DIR);
+        $this->cache = new \myphp\cache\File(['path'=>CACHE_DIR]);
         if (file_exists(HOME . '/config/sync_table_conf.json')) {
             $this->sync_table_conf = json_decode(file_get_contents(HOME . '/config/sync_table_conf.json'), true);
             //Log::write($this->sync_table_conf, 'sync_table_conf');

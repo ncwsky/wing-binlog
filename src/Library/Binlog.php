@@ -12,7 +12,6 @@ use Wing\Library\Workers\BinlogWorker;
  * User: yuyi
  * Date: 17/2/10
  * Time: 10:23
- * @property ICache $cache_handler
  */
 class Binlog
 {
@@ -31,11 +30,6 @@ class Binlog
     * @var string $mysql_binlog
     */
     private $mysql_binlog  = "mysqlbinlog";
-
-    /**
-    * @var string $cache_handler
-    */
-    private $cache_handler;
 
     /**
     * @var string $current_binlog_file
