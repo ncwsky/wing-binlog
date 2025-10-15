@@ -15,7 +15,7 @@ class SyncDb implements ISubscribe
     private $db_name = ''; //使用的库名
     private $local_db_name = ''; //使用的库名
     private $table_name = '';
-    private $cache = null;
+    private $cache;
     private $sync_table_conf = []; //表同步配置 主键、唯一键
     /**
      * @var \Closure|null 数据处理前的回调函数 function($result){return $result;}
@@ -136,7 +136,7 @@ class SyncDb implements ISubscribe
         } catch (\Exception $e) {
             $hasRepeat = strpos($e->getMessage(), 'Duplicate entry');
             \myphp\Log::write($result, 'result');
-            \myphp\Log::WARN($this->db_name . '.' . $this->table_name . ', err:' . substr($e->getMessage(), 0, 100));
+            \myphp\Log::WARN($this->db_name . '.' . $this->table_name . ', err:' . substr($e->getMessage(), 0, 255));
             //\myphp\Log::write(db()->getSql(), $hasRepeat ? 'Duplicate' : 'sql');
 
             //发送通知
