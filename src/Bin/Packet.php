@@ -116,37 +116,30 @@ class Packet
 	 * @param string $db 数据库
 	 * @return string
 	 */
-	public static function  getAuth($flag, $user, $pass, $salt, $db = '')
+	public static function getAuth($flag, $user, $pass, $salt, $db = '')
 	{
-		$data 	= pack('L',$flag);						//4bytes权能信息
-		$data  .= pack('L', self::PACK_MAX_LENGTH); 	//4bytes最大长度
-		$data  .= chr(CharacterSet::utf8_general_ci);	    //1byte字符编码
+        $data = pack('L', $flag);                        //4bytes权能信息
+        $data .= pack('L', self::PACK_MAX_LENGTH);    //4bytes最大长度
+        $data .= chr(CharacterSet::utf8_general_ci);        //1byte字符编码
 
-		//填充23字节0x00
-		for ($i = 0; $i < 23; $i++) {
-			$data .= chr(0);
-		}
+        //填充23字节0x00
+        $data .= str_repeat(chr(0), 23);
 
+        $data .= $user . chr(0);            //用户名 0x00 以NULL结束
+        //密码加密 MysqlNativePassword
+        $result = sha1($pass, true) ^ sha1($salt . sha1(sha1($pass, true), true), true);
+        $data .= chr(strlen($result)) . $result;    //密码信息 Length Coded Binary
 
-		$data   .= $user . chr(0) ;            //用户名 0x00 以NULL结束
-		$result  = sha1($pass, true) ^    //密码加密
-			       sha1($salt .
-				   sha1(sha1($pass, true),
-				   true),true);
-		$data 	.= chr(strlen($result)) . $result;	//密码信息 Length Coded Binary
+        //数据库名称  0x00 以NULL结束
+        if ($db) {
+            $data .= $db . chr(0);
+        }
 
-		//数据库名称  0x00 以NULL结束
-		if ($db) {
-			$data .= $db . chr(0);
-		}
-
-		$str  = pack("L", strlen($data));
-		//报文结构生成
-		//$str[0].$str[1].$str[2] 为消息长度 chr(1)为序号信息必须为1 $data 部分为消息体
-		//$str[0].$str[1].$str[2] . chr(1) 占4bytes 为消息头
-		$data = $str[0].$str[1].$str[2] . chr(1) . $data;
-
-		return $data;
+        $str = pack('L', strlen($data));
+        //报文结构生成
+        //$str[0].$str[1].$str[2] 为消息长度 chr(1)为序号信息必须为1 $data 部分为消息体
+        //$str[0].$str[1].$str[2] . chr(1) 占4bytes 为消息头
+        return $str[0] . $str[1] . $str[2] . chr(1) . $data;
 	}
 
 	/**
@@ -174,10 +167,9 @@ class Packet
      * COM_REGISTER_SLAVE封包
      * https://dev.mysql.com/doc/internals/en/com-register-slave.html
      * @param int $slave_server_id
-     * @param int $master_id
      * @return string
      */
-    public static function registerSlave(int $slave_server_id, int $master_id=0)
+    public static function registerSlave(int $slave_server_id)
     {
         $config = load_config(WING_CONFIG);
         $slave_hostname = gethostname();
@@ -200,10 +192,10 @@ class Packet
         $data .= $slave_password;
 
         #usually empty: 2:slaves mysql-port
-        $data .= pack('v', '');
+        $data .= pack('v', $config['mysql']['port'] ?? '');
 
         $data .= pack('V', 0);
-        $data .= pack('V', $master_id);
+        $data .= pack('V', 0);
 
         return $data;
     }

@@ -66,12 +66,13 @@ $action = $argv[1] ?? '';
 
 echo 'run dir: ' . $home_dir . ', config: ' . $config . ', action: ' . $action . ', daemon: ' . ($daemon ? 'Y' : 'N') . PHP_EOL, PHP_EOL;
 
+const IS_WINDOWS = DIRECTORY_SEPARATOR === '\\';
+
 define('WING_CONFIG', $config);
-define('WING_DEBUG', parseCmd('--debug', null, true));
+define('WING_DEBUG', IS_WINDOWS ? IS_WINDOWS : parseCmd('--debug', null, true));
 
 //定义时区
 date_default_timezone_set('PRC');
-const IS_WINDOWS = DIRECTORY_SEPARATOR === '\\';
 //根目录
 define('HOME', $home_dir);
 define('CACHE_DIR', $home_dir . '/cache');
@@ -109,7 +110,7 @@ if (!in_array($action, ['start', 'restart', 'stop', 'status', 'recover'])) {
 }
 $runLock = $home_dir . '/runLock'; //防重复运行
 if ($action == 'start') {
-    if (file_exists($runLock) && file_get_contents($runLock) == 1) {
+    if (!IS_WINDOWS && file_exists($runLock) && file_get_contents($runLock) == 1) {
         echo 'wing is running!', PHP_EOL;
         exit(0);
     }

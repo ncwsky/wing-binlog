@@ -74,11 +74,8 @@ class Auth
         return [$socket, $server_info];
     }
 
-	/**
-	 * 释放socket资源，关闭socket连接
-	 */
-	public static function free()
-	{
-		Net::close();
-	}
+    public static function sql($sql)
+    {
+        return pack('LC', strlen($sql) + 1, 0x03) . $sql;
+    }
 }

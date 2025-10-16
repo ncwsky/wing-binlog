@@ -111,6 +111,12 @@ class Binlog
                 $config['mysql']['rec_time_out'] ?? self::HEARTBEAT
             );
 
+            //slave_uuid
+            $data = uniqid('', true) . '-' . random_int(0, 0xffff) . '-' . microtime();
+            $hash = hash('ripemd128', uniqid('', true) . '-' . $data);
+            $slaveUuid = substr($hash, 0, 8) . '-' . substr($hash, 8, 4) . '-' . substr($hash, 12, 4) . '-' . substr($hash, 16, 4) . '-' . substr($hash, 20, 12);
+
+            Net::send(Auth::sql("SET @slave_uuid = '{$slaveUuid}', @replica_uuid = '{$slaveUuid}'"));
             //注册为slave
             $this->registerSlave((int)$config['slave_server_id']);
         } catch (\Exception $e) {
