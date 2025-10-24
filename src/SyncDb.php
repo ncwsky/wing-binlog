@@ -2,6 +2,7 @@
 
 namespace Wing;
 
+use myphp\Db;
 use Wing\Library\ISubscribe;
 
 /**
@@ -54,6 +55,7 @@ class SyncDb implements ISubscribe
         if ($this->event_before_call && !($this->event_before_call instanceof \Closure)) {
             $this->event_before_call = null;
         }
+        Db::$useIdentifier = true; //使用标识符处理字段及条件
         //db()::log_on(2);
     }
 
